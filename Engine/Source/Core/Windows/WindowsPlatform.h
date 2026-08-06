@@ -1,0 +1,1 @@
+#define NORETURN __declspec(noreturn)

@@ -17,16 +17,16 @@ typedef int                 bool32;
 typedef char                bool8;
 
 #if defined(__clang__) || defined(__gcc__)
-#define STATIC_ASSERT _Static_assert
+    #define STATIC_ASSERT _Static_assert
 #else 
-#define STATIC_ASSERT static_assert
+    #define STATIC_ASSERT static_assert
 #endif
 
 STATIC_ASSERT(sizeof(uint8 ) == 1, "Expected uint8 to be 1 byte");
 STATIC_ASSERT(sizeof(uint16) == 2, "Expected uint16 to be 2 bytes");
 STATIC_ASSERT(sizeof(uint32) == 4, "Expected uint32 to be 4 bytes");
 STATIC_ASSERT(sizeof(uint64) == 8, "Expected uint64 to be 8 bytes");
-
+        
 STATIC_ASSERT(sizeof(int8 ) == 1, "Expected int8 to be 1 byte");
 STATIC_ASSERT(sizeof(int16) == 2, "Expected int16 to be 2 bytes");
 STATIC_ASSERT(sizeof(int32) == 4, "Expected int32 to be 4 bytes");
@@ -76,6 +76,21 @@ STATIC_ASSERT(sizeof(float64) == 8, "Expected float64 to be 8 bytes");
     #endif
 #endif 
 
+#ifdef WINDOWS_PLATFORM
+    #include "Core/Windows/WindowsPlatform.h"
+#endif
+
+/* C/C++ linkage */
+#ifdef __cplusplus
+    #define LUMORA_EXTERN_C extern "C"
+    #define LUMORA_EXTERN_C_BEGIN extern "C" {
+    #define LUMORA_EXTERN_C_END }
+#else
+    #define LUMORA_EXTERN_C
+    #define LUMORA_EXTERN_C_BEGIN
+    #define LUMORA_EXTERN_C_END
+#endif
+
 #ifdef LUMORA_EXPORT
 #ifdef _MSC_VER
     #define LUMORA_API __declspec(dllexport)
@@ -88,4 +103,12 @@ STATIC_ASSERT(sizeof(float64) == 8, "Expected float64 to be 8 bytes");
 #else
     #define LUMORA_API
 #endif
+#endif
+
+#define LUMORA_C_API LUMORA_EXTERN_C LUMORA_API
+#define LUMORA_CPP_API LUMORA_API
+
+/** Function type macros. */
+#ifndef NORETURN
+    #define NORETURN
 #endif
