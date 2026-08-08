@@ -76,7 +76,7 @@ STATIC_ASSERT(sizeof(float64) == 8, "Expected float64 to be 8 bytes");
     #endif
 #endif 
 
-#ifdef WINDOWS_PLATFORM
+#ifdef PLATFORM_WINDOWS
     #include "Core/Windows/WindowsPlatform.h"
 #endif
 
@@ -111,4 +111,10 @@ STATIC_ASSERT(sizeof(float64) == 8, "Expected float64 to be 8 bytes");
 /** Function type macros. */
 #ifndef NORETURN
     #define NORETURN
+#endif
+#ifndef INLINE
+    #define INLINE
+#endif
+#ifndef FORCEINLINE
+    #define FORCEINLINE
 #endif

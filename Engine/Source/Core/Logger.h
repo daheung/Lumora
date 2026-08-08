@@ -21,6 +21,8 @@ typedef enum ELogLevel
     LOG_LEVEL_INFO  = 3,
     LOG_LEVEL_DEBUG = 4,
     LOG_LEVEL_TRACE = 5,
+
+    LOG_LEVEL_COUNT,
 } ELogLevel;
 
 LUMORA_C_API bool8 InitializeLogging();

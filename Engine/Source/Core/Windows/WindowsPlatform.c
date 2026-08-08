@@ -1,0 +1,290 @@
+#include "Platform/Platform.h"
+#include "Logger.h"
+#include "Asserts.h"
+
+#if PLATFORM_WINDOWS
+
+#include <Windows.h>
+#include <windowsx.h> // param input extraction
+
+typedef struct FInternalState 
+{
+    HINSTANCE Instance;
+    HWND Hwnd;
+} FInternalState;
+
+/** Clock */
+static float64 GClockFrequency;
+static LARGE_INTEGER GStartTime;
+
+static LRESULT CALLBACK Win32ProcessMessage(HWND, UINT, WPARAM, LPARAM);
+static FORCEINLINE void PlatformConsoleWriteImpl(const char* Message, uint8 Color, HANDLE ConsoleHandle);
+
+bool8 PlatformStartup(FPlatformState* PlatformState, const char* ApplicationName, int32 X, int32 Y, int32 Width, int32 Height)
+{
+    FInternalState* InternalState = (FInternalState*)malloc(sizeof(FInternalState));
+    PlatformState->InternalState = InternalState;
+
+    InternalState->Instance = GetModuleHandleA(0);
+
+    /** Setup and register window class. */
+    HICON Icon = LoadIcon(InternalState->Instance, IDI_APPLICATION);
+    WNDCLASSA WindowClass = {};
+    WindowClass.style = CS_DBLCLKS;
+    WindowClass.lpfnWndProc = Win32ProcessMessage;
+    WindowClass.cbClsExtra = 0;
+    WindowClass.cbWndExtra = 0;
+    WindowClass.hInstance = InternalState->Instance;
+    WindowClass.hIcon = Icon;
+    WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
+    WindowClass.hbrBackground = NULL;
+    WindowClass.lpszClassName = "Lumora Window Class";
+
+    if (!RegisterClassA(&WindowClass))
+    {
+        MessageBoxA(0, "Window registration failed", "Error", MB_ICONEXCLAMATION | MB_OK);
+        return FALSE;
+    }
+
+    /** Create Window */
+    uint32 ClientX = X;
+    uint32 ClientY = Y;
+    uint32 ClientWidth  = Width;
+    uint32 ClientHeight = Height;
+
+    uint32 WindowX = ClientX;
+    uint32 WindowY = ClientY;
+    uint32 WindowWidth  = ClientWidth;
+    uint32 WindowHeight = ClientHeight;
+
+    uint32 WindowStyle = WS_OVERLAPPED | WS_SYSMENU | WS_CAPTION;
+    const uint32 WindowExStyle = WS_EX_APPWINDOW;
+
+    WindowStyle |= WS_MAXIMIZEBOX;
+    WindowStyle |= WS_MINIMIZEBOX;
+    WindowStyle |= WS_THICKFRAME;
+
+    /** Obtain the size of the border. */
+    RECT BorderRect = { 0, 0, 0, 0 };
+    AdjustWindowRectEx(&BorderRect, WindowStyle, 0, WindowExStyle);
+
+    /** In this case, the border rectangle is negative. */
+    WindowX += BorderRect.left;
+    WindowY += BorderRect.top;
+
+    /** Grow by the size of the OS border. */
+    WindowWidth  += BorderRect.right - BorderRect.left;
+    WindowHeight += BorderRect.bottom - BorderRect.top;
+
+    HWND Handle = CreateWindowExA(
+        WindowExStyle, "Lumora Window Class", ApplicationName,
+        WindowStyle, WindowX, WindowY, WindowWidth, WindowHeight,
+        0, 0, InternalState->Instance, 0
+    );
+
+    if (Handle == 0)
+    {
+        MessageBoxA(NULL, "Window creation failed.", "Error", MB_ICONEXCLAMATION | MB_OK);
+        LUMORA_FATAL("Window creation failed.")
+        return FALSE;
+    }
+
+    InternalState->Hwnd = Handle;
+
+    /** Show the window */
+    bool32 ShouldActivate = 1;
+    int32 ShowWindowCommandFlags = ShouldActivate ?
+        SW_SHOW : SW_SHOWNOACTIVATE;
+
+    /** 
+     * If initially minimized, use SW_MINIMIZE : SW_SHOWMINNOACTIVE;
+     * If initially maximized, use SW_SHOWMAXIMIZED : SW_MAXIMIZE;
+     */
+    ShowWindow(InternalState->Hwnd, ShowWindowCommandFlags);
+
+    /** Clock setup */
+    LARGE_INTEGER Frequency;
+    QueryPerformanceFrequency(&Frequency);
+    GClockFrequency = 1.0 / (float64)Frequency.QuadPart;
+    QueryPerformanceCounter(&GStartTime);
+
+    return TRUE;
+}
+
+void PlatformShutdown(FPlatformState* PlatformState)
+{
+    /** Simply cold-cast to the known type. */
+    FInternalState* InternalState = (FInternalState*)PlatformState->InternalState;
+    
+    if (InternalState->Hwnd)
+    {
+        DestroyWindow(InternalState->Hwnd);
+        InternalState->Hwnd = 0;
+    }
+}
+
+bool8 PlatformPumpMessage(FPlatformState* PlatformState)
+{
+    MSG Message = {};
+    while (PeekMessage(&Message, NULL, 0, 0, PM_REMOVE))
+    {
+        TranslateMessage(&Message);
+        DispatchMessageA(&Message);
+    }
+
+    return TRUE;
+}
+
+void* PlatformAllocate(uint64 AllocSize, bool8 bAligned)
+{
+    UNREFERENCED_PARAMETER(bAligned);
+    return malloc(AllocSize);
+}
+
+void PlatformFree(void* Block, bool8 bAligned)
+{
+    UNREFERENCED_PARAMETER(bAligned);
+    free(Block);    
+}
+
+void* PlatformZeroMemory(void* Block, uint64 AllocSize)
+{
+    return memset(Block, 0, AllocSize);
+}
+
+void* PlatformCopyMemory(void* Dest, const void* Src, uint64 AllocSize)
+{
+    return memcpy(Dest, Src, AllocSize);
+}
+
+void* PlatformSetMemory(void* Dest, int32 Value, uint64 AllocSize)
+{
+    return memset(Dest, Value, AllocSize);
+}
+
+void PlatformConsoleWrite(const char* Message, uint8 Color)
+{
+    PlatformConsoleWriteImpl(Message, Color, GetStdHandle(STD_OUTPUT_HANDLE));
+}
+
+void PlatformConsoleWriteError(const char* Message, uint8 Color)
+{
+    PlatformConsoleWriteImpl(Message, Color, GetStdHandle(STD_ERROR_HANDLE));
+}
+
+static FORCEINLINE void PlatformConsoleWriteImpl(const char* Message, uint8 Color, HANDLE ConsoleHandle)
+{
+    STATIC_ASSERT(LOG_LEVEL_FATAL == 0, "LOG_LEVEL_FATAL must be 0; check ELogLevel.");
+    STATIC_ASSERT(LOG_LEVEL_ERROR == 1, "LOG_LEVEL_ERROR must be 1; check ELogLevel.");
+    STATIC_ASSERT(LOG_LEVEL_WARN  == 2, "LOG_LEVEL_WARN must be 2; check ELogLevel.");
+    STATIC_ASSERT(LOG_LEVEL_INFO  == 3, "LOG_LEVEL_INFO must be 3; check ELogLevel.");
+    STATIC_ASSERT(LOG_LEVEL_DEBUG == 4, "LOG_LEVEL_DEBUG must be 4; check ELogLevel.");
+    STATIC_ASSERT(LOG_LEVEL_TRACE == 5, "LOG_LEVEL_TRACE must be 5; check ELogLevel.");
+
+    LUMORA_ASSERT_MSG(Color < LOG_LEVEL_COUNT, "Invalid log level");
+    
+    /** FATAL, ERROR, WARN, INFO, DEBUG, TRACE */
+    static uint8 Levels[] = { 
+        BACKGROUND_RED,                     // 64
+        FOREGROUND_RED,                     // 4
+        FOREGROUND_GREEN | FOREGROUND_RED,  // 6
+        FOREGROUND_GREEN,                   // 2
+        FOREGROUND_BLUE,                    // 1
+        FOREGROUND_INTENSITY                // 8
+    };
+    SetConsoleTextAttribute(ConsoleHandle, Levels[Color]);
+
+    OutputDebugStringA(Message);
+
+    uint64 Length = strlen(Message);
+    LPDWORD NumberWritten = 0;
+    WriteConsoleA(ConsoleHandle, Message, (DWORD)Length, NumberWritten, 0);
+}
+
+float64 PlatformGetAbsoluteTime(void)
+{
+    LARGE_INTEGER CurrentTime = {};
+    QueryPerformanceCounter(&CurrentTime);
+    return (float64)CurrentTime.QuadPart * GClockFrequency;
+}
+
+void PlatformSleep(uint64 MilliSecond)
+{
+    Sleep(MilliSecond);
+}
+
+LRESULT CALLBACK Win32ProcessMessage(HWND Hwnd, UINT Message, WPARAM wParam, LPARAM lParam)
+{
+    switch (Message)
+    {
+    case WM_ERASEBKGND:
+        /** Notify the OS that erasing will be handled by the application to prevent flicker. */
+        return 1;
+    case WM_CLOSE:
+        /** TODO: Fire an event for the application to quit. */
+        return 0;
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        return 0;
+    case WM_SIZE: 
+    {
+        /** Get the updated size. */
+        // RECT Rect = {};
+        // GetClientRect(Hwnd, &Rect);
+        // uint32 Width  = Rect.right - Rect.left;
+        // uint32 Height = Rect.bottom - Rect.top;
+
+        /** TODO: Fire an event for window resize. */
+    } 
+        break;
+    case WM_KEYDOWN:
+    case WM_SYSKEYDOWN:
+    case WM_KEYUP:
+    case WM_SYSKEYUP: 
+    {
+        /** Key pressed/released */
+        // bool8 bPressed = (Message == WM_KEYDOWN || Message == WM_SYSKEYDOWN);
+
+        /** TODO: Input processing. */
+
+    }   
+        break;
+    case WM_MOUSEMOVE: 
+    {
+        /** Mouse move */
+        // int32 PositionX = GET_X_LPARAM(lParam);
+        // int32 PositionY = GET_Y_LPARAM(lParam);
+
+        /** TODO: Input processing. */
+    }
+        break;
+    case WM_MOUSEWHEEL:
+    {
+        int32 DeltaZ = GET_WHEEL_DELTA_WPARAM(wParam);
+        if (DeltaZ != 0) {
+            /** Flatten the input to an OS-independent (-1, 1) */
+            DeltaZ = (DeltaZ < 0) ? -1 : 1;
+
+            /** TODO: Input processing. */
+        }
+    }
+        break;
+    case WM_LBUTTONDOWN:
+    case WM_MBUTTONDOWN:
+    case WM_RBUTTONDOWN:
+    case WM_LBUTTONUP:
+    case WM_MBUTTONUP:
+    case WM_RBUTTONUP:
+    {
+        // bool8 bPressed = Message == WM_LBUTTONDOWN || Message == WM_RBUTTONDOWN || Message == WM_MBUTTONDOWN;
+        /** TODO: Input processing. */
+    }
+        break;
+    default:
+        break;
+    }
+
+    return DefWindowProcA(Hwnd, Message, wParam, lParam);
+}
+
+#endif
