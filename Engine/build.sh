@@ -58,6 +58,7 @@ cppCompilerFlags=(
 
 includeFlags=(
     "-I${sourceDir}"
+    "-I${sourceDir}/Core"
     "-I${VULKAN_SDK}/include"
 )
 

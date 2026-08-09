@@ -49,6 +49,7 @@ cppCompilerFlags=(
 includeFlags=(
     "-I${sourceDir}"
     "-I../Engine/Source"
+    "-I../Engine/Source/Core"
 )
 
 defines=(
