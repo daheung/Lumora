@@ -30,6 +30,14 @@ LUMORA_C_API void ShutdownLogging();
 
 LUMORA_C_API void LogOutput(ELogLevel LogLevel, const char* Message, ...);
 
+#define LUMORA_LOG(Expression, LogLevel, Message, ...)          \
+    do {                                                        \
+        if (!(Expression)) {                                    \
+            LogOutput(LogLevel, Message, ##__VA_ARGS__);        \
+            DEBUG_BREAK();                                      \
+        }                                                       \
+    } while(0)
+
 #define LUMORA_FATAL(Message, ...) LogOutput(LOG_LEVEL_FATAL, Message, ##__VA_ARGS__);
 
 #ifndef LUMORA_ERROR
@@ -39,7 +47,7 @@ LUMORA_C_API void LogOutput(ELogLevel LogLevel, const char* Message, ...);
 
 #if LOG_WARN_ENABLED
     /** Logs a warning-level message */
-    #define LUMORA_WARN(Message, ...) LogOutput(LOG_LEVEL_WARN, Message, ##__VA_ARGS__);
+    #define LUMORA_WARN(Message, ...) LogOutput(LOG_LEVEL_ERROR, Message, ##__VA_ARGS__);
 #else
     #define LUMORA_WARN(Message, ...)
 #endif

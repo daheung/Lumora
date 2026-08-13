@@ -16,6 +16,8 @@ typedef double              float64;
 typedef int                 bool32;
 typedef char                bool8;
 
+typedef uint64              size_t;
+
 #if defined(__clang__) || defined(__gcc__)
     #define STATIC_ASSERT _Static_assert
 #else 
@@ -35,8 +37,18 @@ STATIC_ASSERT(sizeof(int64) == 8, "Expected int64 to be 8 bytes");
 STATIC_ASSERT(sizeof(float32) == 4, "Expected float32 to be 4 bytes");
 STATIC_ASSERT(sizeof(float64) == 8, "Expected float64 to be 8 bytes");
 
-#define TRUE 1
-#define FALSE 0
+#ifndef TRUE
+    #define TRUE 1
+#endif
+#ifndef FALSE
+    #define FALSE 0
+#endif
+#ifndef NULL
+    #define NULL 0
+#endif
+#ifndef RESTRICT
+    #define RESTRICT
+#endif
 
 /** Platform-specific definitions */
 #if defined(_WIN32) || defined(_WIN32) || defined(__WIN32__)
