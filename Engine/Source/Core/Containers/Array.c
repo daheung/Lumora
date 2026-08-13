@@ -2,14 +2,15 @@
 
 #include "HAL/LumoraMemory.h"
 #include "Asserts.h"
+#include "Logger.h"
 
-static FORCEINLINE void* CopyToEmpty(void* NewArray, const void* PrevArray, uint64 PrevMax);
-static FORCEINLINE void* CopyToEmptyWithSlack(void* NewArray, const void* PrevArray, uint64 PrevMax, uint64 ExtraSlack);
+// static FORCEINLINE void* CopyToEmpty(void* NewArray, const void* PrevArray, uint64 PrevMax);
+// static FORCEINLINE void* CopyToEmptyWithSlack(void* NewArray, const void* PrevArray, uint64 PrevMax, uint64 ExtraSlack);
 
-static FORCEINLINE void* CopyToEmpty(void* NewArray, const void* PrevArray, uint64 PrevMax)
-{
-    return CopyToEmptyWithSlack(NewArray, PrevArray, PrevMax, 0);
-}
+// static FORCEINLINE void* CopyToEmpty(void* NewArray, const void* PrevArray, uint64 PrevMax)
+// {
+//     return CopyToEmptyWithSlack(NewArray, PrevArray, PrevMax, 0);
+// }
 
 /**
  * Copies data from one array into this array. Uses the fast path if the
@@ -20,30 +21,30 @@ static FORCEINLINE void* CopyToEmpty(void* NewArray, const void* PrevArray, uint
  * @param ExtraSlack Additional amount of memory to allocate at
  *                   the end of the buffer. Counted in elements.
  */
-static FORCEINLINE void* CopyToEmptyWithSlack(void* NewArray, const void* PrevArray, uint64 PrevMax, uint64 ExtraSlack)
-{
-    uint64 Length = CArrayLength(PrevArray);
-    uint64 NewCapacity = Length + ExtraSlack;
+// static FORCEINLINE void* CopyToEmptyWithSlack(void* NewArray, const void* PrevArray, uint64 PrevMax, uint64 ExtraSlack)
+// {
+//     uint64 Length = CArrayLength(PrevArray);
+//     uint64 NewCapacity = Length + ExtraSlack;
 
-    uint64 Stride = CArrayStride(PrevArray);
-    uint64 Capacity = CArrayCapacity(PrevArray);
-    HCopyMemory(NewArray, PrevArray, PrevMax);
+//     uint64 Stride = CArrayStride(PrevArray);
+//     uint64 Capacity = CArrayCapacity(PrevArray);
+//     HCopyMemory(NewArray, PrevArray, PrevMax);
 
-    CArraySetFieldImpl(NewArray, ARRAY_LENGTH, Length);
-    CArraySetFieldImpl(NewArray, ARRAY_STRIDE, Stride);
-    CArraySetFieldImpl(NewArray, ARRAY_CAPACITY, Capacity);
-    return NewArray;
-}
+//     CArraySetFieldImpl(NewArray, ARRAY_LENGTH, Length);
+//     CArraySetFieldImpl(NewArray, ARRAY_STRIDE, Stride);
+//     CArraySetFieldImpl(NewArray, ARRAY_CAPACITY, Capacity);
+//     return NewArray;
+// }
 
-static FORCEINLINE uint32 GetInitCapacity()
-{
-    return 0;
-}
+// static FORCEINLINE uint32 GetInitCapacity()
+// {
+//     return 0;
+// }
 
-static FORCEINLINE uint32 DefaultCalculateSlackGrow(uint32 NumElements, uint32 NumAllocatedElements, size_t BytesPerElement)
-{
-
-}
+// static FORCEINLINE uint32 DefaultCalculateSlackGrow(uint32 NumElements, uint32 NumAllocatedElements, size_t BytesPerElement)
+// {
+//     return 0;
+// }
 
 
 LUMORA_C_API void* CArrayCreateImpl(uint64 Length, uint64 Stride)
@@ -68,20 +69,20 @@ LUMORA_C_API void CArrayReleaseImpl(void *Array)
     HFree(Header, TotalSize, MEMORY_TAG_DYNAMIC_ARRAY);
 }
 
-LUMORA_C_API uint64 CArrayGetFieldImpl(void *Array, uint64 Field)
+LUMORA_C_API uint64 CArrayGetFieldImpl(const void* const Array, uint64 Field)
 {
     uint64* Header = (uint64*)Array - ARRAY_FIELD_LENGTH;
     return Header[Field];
 }
 
-LUMORA_C_API void CArraySetFieldImpl(void *Array, uint64 Field, uint64 Value)
+LUMORA_C_API void CArraySetFieldImpl(void* Array, uint64 Field, uint64 Value)
 {
     uint64* Header = (uint64*)Array - ARRAY_FIELD_LENGTH;
     Header[Field] = Value;
 }
 
 /** TODO: Use OptNewCapacity Param */
-LUMORA_C_API void* CArrayResize(void *Array, uint64 OptNewCapacity)
+LUMORA_C_API void* CArrayResize(void* Array, uint64 OptNewCapacity)
 {
     uint64 Length = CArrayLength(Array);
     uint64 Stride = CArrayStride(Array);
@@ -99,7 +100,7 @@ LUMORA_C_API void* CArrayPushImpl(void *Array, const void *ValuePtr)
     uint64 Stride = CArrayStride(Array);
     if (Length >= CArrayCapacity(Array))
     {
-        Array = CArrayResize(Array, NULL);
+        Array = CArrayResize(Array, 0);
     }
 
     const uint8* Start = (uint8*)Array;
@@ -126,7 +127,7 @@ LUMORA_C_API void CArrayPopImpl(void* RESTRICT Array, void* RESTRICT Dest)
     CArraySetFieldImpl(Array, ARRAY_LENGTH, Length - 1);
 }
 
-LUMORA_C_API void *CArrayPopAtImpl(void* RESTRICT Array, uint64 Index, void* RESTRICT Dest)
+LUMORA_C_API void* CArrayPopAtImpl(void* RESTRICT Array, uint64 Index, void* RESTRICT Dest)
 {
     LUMORA_ASSERT_MSG(Array, "Array is null.");
     LUMORA_ASSERT_MSG(Dest, "Destination is null.");
@@ -134,7 +135,7 @@ LUMORA_C_API void *CArrayPopAtImpl(void* RESTRICT Array, uint64 Index, void* RES
     uint64 Length = CArrayLength(Array);
     uint64 Stride = CArrayStride(Array);
 
-    LUMORA_ASSERT_MSG(Index < Length, "Index outside the bounds of this array. Length : %i, index : %iindex", Length, Index);
+    LUMORA_LOG(Index < Length, LOG_LEVEL_FATAL, "Index outside the bounds of this array. Length : %i, index : %iindex", Length, Index);
     
     const uint8* Start = (uint8*)Array;
     const uint8* Data = Start + Length * Stride; 
@@ -143,7 +144,7 @@ LUMORA_C_API void *CArrayPopAtImpl(void* RESTRICT Array, uint64 Index, void* RES
     /** If not on the last element, snip out the entry and copy the rest inward. */
     if (Index != Length - 1)
     {
-        HCopyMemory(Data, Data + 1, Stride * (Length - Index));
+        HCopyMemory((void*)Data, Data + 1, Stride * (Length - Index));
     }
 
     CArraySetFieldImpl(Array, ARRAY_LENGTH, Length - 1);
@@ -159,11 +160,11 @@ LUMORA_C_API void *CArrayInsertAtImpl(void *Array, uint64 Index, void *ValuePtr)
     const uint64 Stride = CArrayStride(Array);
     const uint64 Capacity = CArrayCapacity(Array);
 
-    LUMORA_ASSERT_MSG(Index < Length, "Index outside the bounds of this array. Length : %i, index : %iindex", Length, Index);
+    LUMORA_LOG(Index < Length, LOG_LEVEL_FATAL, "Index outside the bounds of this array. Length : %i, index : %iindex", Length, Index);
     
     if (Capacity < Length - 1)
     {
-        Array = CArrayResize(Array, NULL);
+        Array = CArrayResize(Array, 0);
     }
 
     const uint8* Start = (uint8*)Array;
@@ -172,11 +173,11 @@ LUMORA_C_API void *CArrayInsertAtImpl(void *Array, uint64 Index, void *ValuePtr)
     /** If not on the last element, snip out the entry and copy the rest inward. */
     if (Index != Length - 1)
     {
-        HCopyMemory(Data + 1, Data, Stride * (Length - Index));
+        HCopyMemory((void*)(Data + 1), Data, Stride * (Length - Index));
     }
 
     /** Set the value at the index. */
-    HCopyMemory(Data, ValuePtr, Stride);
+    HCopyMemory((void*)Data, ValuePtr, Stride);
 
     CArraySetFieldImpl(Array, ARRAY_LENGTH, Length + 1);
     return Array;

@@ -30,10 +30,10 @@ typedef struct FArray
 LUMORA_C_API void* CArrayCreateImpl(uint64 Length, uint64 Stride);
 LUMORA_C_API void  CArrayReleaseImpl(void* Array);
 
-LUMORA_C_API uint64 CArrayGetFieldImpl(void* Array, uint64 Field);
+LUMORA_C_API uint64 CArrayGetFieldImpl(const void* const Array, uint64 Field);
 LUMORA_C_API void CArraySetFieldImpl(void* Array, uint64 Field, uint64 Value);
 
-LUMORA_C_API void* CArrayResize(void* Array);
+LUMORA_C_API void* CArrayResize(void* Array, uint64 OptNewCapacity);
 
 LUMORA_C_API void* CArrayPushImpl(void* Array, const void* ValuePtr);
 LUMORA_C_API void  CArrayPopImpl(void* Array, void* Dest);
@@ -56,7 +56,7 @@ LUMORA_C_API FORCEINLINE void* CArrayCreateWithCapacity(uint64 Sizeof, uint64 Ca
 
 LUMORA_C_API FORCEINLINE void CArrayRelease(void* Array)
 {
-    CArrayRelease(Array);
+    CArrayReleaseImpl(Array);
 }
 
 #define CArrayPush(Array, Value)            \
@@ -91,17 +91,17 @@ LUMORA_C_API FORCEINLINE void CArrayClear(void* Array)
     CArraySetFieldImpl(Array, ARRAY_LENGTH, 0);
 }
 
-LUMORA_C_API FORCEINLINE uint64 CArrayCapacity(void* Array)
+LUMORA_C_API FORCEINLINE uint64 CArrayCapacity(const void* const Array)
 {
     return CArrayGetFieldImpl(Array, ARRAY_CAPACITY);
 }
 
-LUMORA_C_API FORCEINLINE uint64 CArrayLength(void* Array)
+LUMORA_C_API FORCEINLINE uint64 CArrayLength(const void* const Array)
 {
     return CArrayGetFieldImpl(Array, ARRAY_LENGTH);
 }
 
-LUMORA_C_API FORCEINLINE uint64 CArrayStride(void* Array)
+LUMORA_C_API FORCEINLINE uint64 CArrayStride(const void* const Array)
 {
     return CArrayGetFieldImpl(Array, ARRAY_STRIDE);
 }

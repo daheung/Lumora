@@ -81,7 +81,7 @@ typedef enum ESystemEventCode
      * Context usage:
      * uint16 KeyCode = Data.Data.U16[0];
      */
-    EVENT_CODE_KEY_PRESSED = 0x03,
+    EVENT_CODE_KEY_RELEASED = 0x03,
 
     /** 
      * Mouse button pressed. 
@@ -97,7 +97,7 @@ typedef enum ESystemEventCode
      * Context usage:
      * uint16 button = Data.Data.U16[0];
      */
-    EVENT_CODE_BUTTON_PRESSED = 0x05,
+    EVENT_CODE_BUTTON_RELEASED = 0x05,
     
     /**
      * Mouse moved.
