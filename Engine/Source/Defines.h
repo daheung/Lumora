@@ -89,7 +89,7 @@ STATIC_ASSERT(sizeof(float64) == 8, "Expected float64 to be 8 bytes");
 #endif 
 
 #ifdef PLATFORM_WINDOWS
-    #include "Core/Windows/WindowsPlatform.h"
+    #include "Core/Platform/Windows/WindowsPlatform.h"
 #endif
 
 /* C/C++ linkage */

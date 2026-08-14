@@ -1,4 +1,4 @@
-#include "Platform/Platform.h"
+#include "Core/Platform/Platform.h"
 
 /** Linux platform layer. */
 #if PLATFORM_LINUX

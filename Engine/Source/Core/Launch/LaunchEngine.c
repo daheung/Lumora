@@ -4,6 +4,8 @@
 #include "Logger.h"
 #include "Platform/Platform.h"
 #include "HAL/LumoraMemory.h"
+#include "Misc/CoreEvent.h"
+#include "InputCore/Input.h"
 
 typedef struct FApplicationState
 {
@@ -30,7 +32,10 @@ LUMORA_C_API bool8 ApplicationCreate(struct FGame* GameInstance)
     GApplicationState.GameInstance = GameInstance;
 
     /** Initialize subsystems. */
+    InitializeMemory();
     InitializeLogging();
+    InitializeEvent();
+    InitializeInput();
 
     GApplicationState.bIsRunning = TRUE;
     GApplicationState.bIsSuspended = FALSE;
@@ -79,12 +84,24 @@ LUMORA_C_API bool8 ApplocationLoop()
                 GApplicationState.bIsRunning = FALSE;
                 break;
             }
+
+            /**
+             * NOTE: Input update/state copying should always be handled
+             * after any input should be recorded; E.E. before this line.
+             * As a safety, input is the last thing to be updated before
+             * this frame ends.
+             */
+            UpdateInput(0);
         }
     }
 
     GApplicationState.bIsRunning = FALSE;
+    
     PlatformShutdown(&GApplicationState.PlatformState);
     ShutdownLogging();
+    ReleaseEvent();
+    ReleaseInput();
+    ReleaseMemory();
 
     return TRUE;
 }

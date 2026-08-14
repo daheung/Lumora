@@ -9,8 +9,8 @@
 extern bool8 CreateGame(FGame* OutGame);
 
 int main(void) {
-    InitializeMemory();
-    InitializeLogging();
+    // InitializeMemory();
+    // InitializeLogging();
 
     /** Request the game instance from the application. */
     FGame GameInstance;
@@ -40,7 +40,7 @@ int main(void) {
         return 2;
     }
 
-    ReleaseMemory();
-    ShutdownLogging();
+    // ReleaseMemory();
+    // ShutdownLogging();
     return 0;
 }
