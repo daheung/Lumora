@@ -23,7 +23,7 @@ void InitializeMemory(void)
 
 void ReleaseMemory(void)
 {
-    PlatformFree(&GMemoryStats, FALSE);
+    // PlatformFree(&GMemoryStats, FALSE);
 }
 
 LUMORA_C_API void* HAllocate(uint64 AllocSize, EMemoryTag MemoryTag)
@@ -41,7 +41,7 @@ LUMORA_C_API void* HAllocate(uint64 AllocSize, EMemoryTag MemoryTag)
     return Block;
 }
 
-LUMORA_C_API void HFree(void *Block, uint64 AllocSize, EMemoryTag MemoryTag)
+LUMORA_C_API void HFree(void* Block, uint64 AllocSize, EMemoryTag MemoryTag)
 {
     LUMORA_LOG(MemoryTag != MEMORY_TAG_UNKNOWN, LOG_LEVEL_WARN, "HAllocate called using MEMORY_TAG_UNKNOWN. Re-class this allocation.");
     LUMORA_LOG(MemoryTag != MEMORY_TAG_MAX_TAGS, LOG_LEVEL_FATAL, "Invalid MemoryTag Param");
@@ -49,7 +49,7 @@ LUMORA_C_API void HFree(void *Block, uint64 AllocSize, EMemoryTag MemoryTag)
     GMemoryStats.TotalAllocated -= AllocSize;
     GMemoryStats.TaggedAllocations[MemoryTag] -= AllocSize;
 
-    LUMORA_ASSERT_MSG(GMemoryStats.TotalAllocated > 0, "TotalAllocated must not be less than 0.");
+    LUMORA_ASSERT_MSG(GMemoryStats.TotalAllocated >= 0, "TotalAllocated must not be less than 0.");
 
     /** TODO: Memory Alignment */
     PlatformFree(Block, FALSE);

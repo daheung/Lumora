@@ -51,7 +51,7 @@ bool8 InitializeEvent()
 void ReleaseEvent()
 {
     /** Free the events array. And objects pointed to should be destroyed on their own. */
-    for (uint16 Index = 0; Index < MAX_MESSAGE_CODES; ++Index)
+    for (uint16 Index = 0; Index < MAX_EVENT_CODE; ++Index)
     {
         if (GEventSystemState.Registered[Index].Events != 0)
         {

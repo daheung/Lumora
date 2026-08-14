@@ -61,7 +61,7 @@ LUMORA_C_API void* CArrayCreateImpl(uint64 Length, uint64 Stride)
     return (void*)(OutArray + ARRAY_FIELD_LENGTH);
 }
 
-LUMORA_C_API void CArrayReleaseImpl(void *Array)
+LUMORA_C_API void CArrayReleaseImpl(void* Array)
 {
     uint64* Header = (uint64*)Array - ARRAY_FIELD_LENGTH;
     uint64 HeaderSize = ARRAY_FIELD_LENGTH * sizeof(uint64);

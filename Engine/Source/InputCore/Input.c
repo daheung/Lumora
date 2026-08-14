@@ -152,7 +152,7 @@ void ProcessInputMouseMove(int16 X, int16 Y)
     if (GInputState.CurMouse.X != X || GInputState.CurMouse.Y != Y)
     {
         /** NOTE: Enable this if debugging. */ 
-        LUMORA_DEBUG("Mouse position: (%i, %i)", X, Y);
+        // LUMORA_DEBUG("Mouse position: (%i, %i)", X, Y);
 
         /** Update internal state. */
         GInputState.CurMouse.X = X;

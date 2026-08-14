@@ -21,6 +21,10 @@ typedef struct FApplicationState
 static bool8 bInitialized = FALSE;
 static FApplicationState GApplicationState;
 
+/** Event handlers */
+static bool8 ApplicationOnEvent(uint16 Code, void* Sender, void* ListenerList, FCoreEventContext Context);
+static bool8 ApplicationOnKey(uint16 Code, void* Sender, void* ListenerList, FCoreEventContext Context);
+
 LUMORA_C_API bool8 ApplicationCreate(struct FGame* GameInstance)
 {
     if (bInitialized)
@@ -36,6 +40,11 @@ LUMORA_C_API bool8 ApplicationCreate(struct FGame* GameInstance)
     InitializeLogging();
     InitializeEvent();
     InitializeInput();
+
+    /** Register event for quit engine. */
+    RegisterEvent(EVENT_CODE_APPLICATION_QUIT, 0, ApplicationOnEvent);
+    RegisterEvent(EVENT_CODE_KEY_PRESSED     , 0, ApplicationOnKey);
+    RegisterEvent(EVENT_CODE_KEY_RELEASED    , 0, ApplicationOnKey);
 
     GApplicationState.bIsRunning = TRUE;
     GApplicationState.bIsSuspended = FALSE;
@@ -97,6 +106,11 @@ LUMORA_C_API bool8 ApplocationLoop()
 
     GApplicationState.bIsRunning = FALSE;
     
+    /** Unregister events. */
+    UnregisterEvent(EVENT_CODE_APPLICATION_QUIT, 0, ApplicationOnEvent);
+    UnregisterEvent(EVENT_CODE_KEY_PRESSED     , 0, ApplicationOnKey);
+    UnregisterEvent(EVENT_CODE_KEY_RELEASED    , 0, ApplicationOnKey);
+
     PlatformShutdown(&GApplicationState.PlatformState);
     ShutdownLogging();
     ReleaseEvent();
@@ -104,4 +118,63 @@ LUMORA_C_API bool8 ApplocationLoop()
     ReleaseMemory();
 
     return TRUE;
+}
+
+bool8 ApplicationOnEvent(uint16 Code, void *Sender, void *ListenerList, FCoreEventContext Context)
+{
+    switch (Code)
+    {
+    case EVENT_CODE_APPLICATION_QUIT:
+        LUMORA_INFO("EVENT_CODE_APPLICATION_QUIT received, shutting down.");
+        GApplicationState.bIsRunning = FALSE;
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+bool8 ApplicationOnKey(uint16 Code, void *Sender, void *ListenerList, FCoreEventContext Context)
+{
+    switch (Code)
+    {
+    case EVENT_CODE_KEY_PRESSED:
+    {
+        uint16 KeyCode = Context.Data.U16[0];
+        if (KeyCode == KEY_ESCAPE)
+        {
+            /** NOTE: Technically firing an event to itself, but there may be other listeners. */
+            FCoreEventContext EventContext = {};
+            FireEvent(EVENT_CODE_APPLICATION_QUIT, 0, EventContext);
+
+            /** Block anything else from processing this. */
+            return TRUE;
+        }
+        else if (KeyCode == KEY_A)
+        {
+            /** Example on checking for a key */
+            LUMORA_DEBUG("Explicit - A key pressed.");
+        } 
+        else 
+        {
+            LUMORA_DEBUG("'%c' key pressed in window.", KeyCode);
+        }
+    }
+        break;
+    case EVENT_CODE_KEY_RELEASED:
+    {
+        uint16 KeyCode = Context.Data.U16[0];
+        if (KeyCode == KEY_B)
+        {
+            /** Example on checking for a key */
+            LUMORA_DEBUG("Explicit - B key pressed.");
+        }
+        else
+        {
+            LUMORA_DEBUG("'%c' key released in window.", KeyCode);
+        }
+    }
+        break;
+    }
+
+    return FALSE;
 }

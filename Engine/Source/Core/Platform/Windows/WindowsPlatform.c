@@ -1,6 +1,7 @@
 #include "Platform/Platform.h"
 #include "Logger.h"
 #include "Asserts.h"
+#include "InputCore/Input.h"
 
 #if PLATFORM_WINDOWS
 
@@ -19,6 +20,8 @@ static LARGE_INTEGER GStartTime;
 
 static LRESULT CALLBACK Win32ProcessMessage(HWND, UINT, WPARAM, LPARAM);
 static FORCEINLINE void PlatformConsoleWriteImpl(const char* Message, uint8 Color, HANDLE ConsoleHandle);
+
+static FORCEINLINE void ProcessKeyInputImpl(HWND Hwnd, UINT Message, WPARAM wParam, LPARAM lParam);
 
 bool8 PlatformStartup(FPlatformState* PlatformState, const char* ApplicationName, int32 X, int32 Y, int32 Width, int32 Height)
 {
@@ -241,21 +244,16 @@ LRESULT CALLBACK Win32ProcessMessage(HWND Hwnd, UINT Message, WPARAM wParam, LPA
     case WM_SYSKEYDOWN:
     case WM_KEYUP:
     case WM_SYSKEYUP: 
-    {
-        /** Key pressed/released */
-        // bool8 bPressed = (Message == WM_KEYDOWN || Message == WM_SYSKEYDOWN);
-
-        /** TODO: Input processing. */
-
-    }   
+        ProcessKeyInputImpl(Hwnd, Message, wParam, lParam);
         break;
     case WM_MOUSEMOVE: 
     {
         /** Mouse move */
-        // int32 PositionX = GET_X_LPARAM(lParam);
-        // int32 PositionY = GET_Y_LPARAM(lParam);
+        const int32 PositionX = GET_X_LPARAM(lParam);
+        const int32 PositionY = GET_Y_LPARAM(lParam);
 
-        /** TODO: Input processing. */
+        /** Pass over to the input subsystem. */
+        ProcessInputMouseMove(PositionX, PositionY);
     }
         break;
     case WM_MOUSEWHEEL:
@@ -264,8 +262,7 @@ LRESULT CALLBACK Win32ProcessMessage(HWND Hwnd, UINT Message, WPARAM wParam, LPA
         if (DeltaZ != 0) {
             /** Flatten the input to an OS-independent (-1, 1) */
             DeltaZ = (DeltaZ < 0) ? -1 : 1;
-
-            /** TODO: Input processing. */
+            ProcessInputMouseWheel(DeltaZ);            
         }
     }
         break;
@@ -276,8 +273,29 @@ LRESULT CALLBACK Win32ProcessMessage(HWND Hwnd, UINT Message, WPARAM wParam, LPA
     case WM_MBUTTONUP:
     case WM_RBUTTONUP:
     {
-        // bool8 bPressed = Message == WM_LBUTTONDOWN || Message == WM_RBUTTONDOWN || Message == WM_MBUTTONDOWN;
-        /** TODO: Input processing. */
+        bool8 bPressed = Message == WM_LBUTTONDOWN || Message == WM_RBUTTONDOWN || Message == WM_MBUTTONDOWN;
+        EButtons MouseButton = BUTTON_MAX_BUTTONS;
+        switch (Message)
+        {
+        case WM_LBUTTONDOWN:
+        case WM_LBUTTONUP:
+            MouseButton = BUTTON_LEFT;
+            break;
+        case WM_MBUTTONDOWN:
+        case WM_MBUTTONUP:
+            MouseButton = BUTTON_MIDDLE;
+            break;
+        case WM_RBUTTONDOWN:
+        case WM_RBUTTONUP:
+            MouseButton = BUTTON_RIGHT;
+            break;
+        }
+
+        /** Pass over to the input subsystem. */
+        if (MouseButton != BUTTON_MAX_BUTTONS)
+        {
+            ProcessInputButton(MouseButton, bPressed);
+        }
     }
         break;
     default:
@@ -285,6 +303,43 @@ LRESULT CALLBACK Win32ProcessMessage(HWND Hwnd, UINT Message, WPARAM wParam, LPA
     }
 
     return DefWindowProcA(Hwnd, Message, wParam, lParam);
+}
+
+/**
+ * NOTE: Input Handling Strategy
+ *
+ * GetAsyncKeyState() performs discrete-time polling of the current
+ * asynchronous key state at the exact moment the function is called.
+ *
+ * If a key is pressed and released entirely between two input samples,
+ * the engine may observe the key as released at both sampling points and
+ * therefore fail to detect the state transition. In other words, short-lived
+ * input events can be missed when only the instantaneous key state is polled.
+ *
+ * WM_KEYDOWN and WM_KEYUP, on the other hand, are event-based. Windows
+ * places keyboard messages into the owning thread's message queue, and the
+ * application retrieves and dispatches those messages through its message
+ * pump (e.g. PeekMessage/GetMessage -> DispatchMessage -> WndProc).
+ *
+ * Because the key-down and key-up transitions are represented as separate
+ * queued messages, input transitions that occur between simulation frames
+ * can still be processed when the message queue is pumped.
+ *
+ * Keyboard messages are also associated with the window/thread that owns
+ * keyboard focus, which naturally follows the normal Windows focus model.
+ *
+ * For this reason, the platform layer uses WM_KEYDOWN/WM_KEYUP to record
+ * input transitions and updates the engine's internal input state from those
+ * events, rather than polling every key with GetAsyncKeyState().
+ */
+static FORCEINLINE void ProcessKeyInputImpl(HWND Hwnd, UINT Message, WPARAM wParam, LPARAM lParam)
+{
+    /** Key pressed/released */
+    bool8 bPressed = (Message == WM_KEYDOWN || Message == WM_SYSKEYDOWN);
+    EKeys Key = (uint16)wParam;
+
+    /** Pass to the input subsystem for processing. */
+    ProcessInputKey(Key, bPressed);
 }
 
 #endif
