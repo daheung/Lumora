@@ -81,7 +81,7 @@ LUMORA_C_API void CArraySetLength(void* Array, uint64 Value)
 
 
 
-LUMORA_C_API void* CArrayCreateImpl(uint64 Length, uint64 Stride)
+void* CArrayCreateImpl(uint64 Length, uint64 Stride)
 {
     uint64 HeaderSize = ARRAY_FIELD_LENGTH * sizeof(uint64);
     uint64 ArraySize = Length * Stride;
@@ -95,7 +95,7 @@ LUMORA_C_API void* CArrayCreateImpl(uint64 Length, uint64 Stride)
     return (void*)(OutArray + ARRAY_FIELD_LENGTH);
 }
 
-LUMORA_C_API void CArrayReleaseImpl(void* Array)
+void CArrayReleaseImpl(void* Array)
 {
     uint64* Header = (uint64*)Array - ARRAY_FIELD_LENGTH;
     uint64 HeaderSize = ARRAY_FIELD_LENGTH * sizeof(uint64);
@@ -103,20 +103,20 @@ LUMORA_C_API void CArrayReleaseImpl(void* Array)
     HFree(Header, TotalSize, MEMORY_TAG_DYNAMIC_ARRAY);
 }
 
-LUMORA_C_API uint64 CArrayGetFieldImpl(const void* const Array, uint64 Field)
+uint64 CArrayGetFieldImpl(const void* const Array, uint64 Field)
 {
     uint64* Header = (uint64*)Array - ARRAY_FIELD_LENGTH;
     return Header[Field];
 }
 
-LUMORA_C_API void CArraySetFieldImpl(void* Array, uint64 Field, uint64 Value)
+void CArraySetFieldImpl(void* Array, uint64 Field, uint64 Value)
 {
     uint64* Header = (uint64*)Array - ARRAY_FIELD_LENGTH;
     Header[Field] = Value;
 }
 
 /** TODO: Use OptNewCapacity Param */
-LUMORA_C_API void* CArrayResizeImpl(void* Array, uint64 OptNewCapacity)
+void* CArrayResizeImpl(void* Array, uint64 OptNewCapacity)
 {
     uint64 Length = CArrayLength(Array);
     uint64 Stride = CArrayStride(Array);
@@ -128,7 +128,7 @@ LUMORA_C_API void* CArrayResizeImpl(void* Array, uint64 OptNewCapacity)
     return NewArray;
 }
 
-LUMORA_C_API void* CArrayPushImpl(void *Array, const void *ValuePtr)
+void* CArrayPushImpl(void *Array, const void *ValuePtr)
 {
     uint64 Length = CArrayLength(Array);
     uint64 Stride = CArrayStride(Array);
@@ -145,7 +145,7 @@ LUMORA_C_API void* CArrayPushImpl(void *Array, const void *ValuePtr)
     return Array;
 }
 
-LUMORA_C_API void CArrayPopImpl(void* RESTRICT Array, void* RESTRICT Dest)
+void CArrayPopImpl(void* RESTRICT Array, void* RESTRICT Dest)
 {
     LUMORA_ASSERT_MSG(Array, "Array is null.");
     LUMORA_ASSERT_MSG(Dest, "Destination is null.");
@@ -161,7 +161,7 @@ LUMORA_C_API void CArrayPopImpl(void* RESTRICT Array, void* RESTRICT Dest)
     CArraySetFieldImpl(Array, ARRAY_LENGTH, Length - 1);
 }
 
-LUMORA_C_API void* CArrayPopAtImpl(void* RESTRICT Array, uint64 Index, void* RESTRICT Dest)
+void* CArrayPopAtImpl(void* RESTRICT Array, uint64 Index, void* RESTRICT Dest)
 {
     LUMORA_ASSERT_MSG(Array, "Array is null.");
     LUMORA_ASSERT_MSG(Dest, "Destination is null.");
@@ -185,7 +185,7 @@ LUMORA_C_API void* CArrayPopAtImpl(void* RESTRICT Array, uint64 Index, void* RES
     return Array;
 }
 
-LUMORA_C_API void* CArrayInsertAtImpl(void *Array, uint64 Index, void *ValuePtr)
+void* CArrayInsertAtImpl(void *Array, uint64 Index, void *ValuePtr)
 {
     LUMORA_ASSERT_MSG(Array, "Array is null.");
     LUMORA_ASSERT_MSG(ValuePtr, "Destination is null.");
