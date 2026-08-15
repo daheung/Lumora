@@ -3,11 +3,16 @@
 #include "Core/Logger.h"
 #include "Core/Asserts.h"
 #include "Platform/Platform.h"
+#include "Misc/CString.h"
 
 /** TODO: Custom string lib */
 #include <string.h>
 #include <stdio.h>
 
+typedef struct FMemoryBuffer
+{
+    void* Data
+} FMemoryBuffer;
 typedef struct FMemoryStats
 {
     uint64 TotalAllocated;
@@ -109,6 +114,6 @@ LUMORA_C_API char* HGetMemoryUseageStr()
         Offset += Length;
     }
 
-    char* OutString = _strdup(Buffer);
+    char* OutString = Strdup(Buffer);
     return OutString;
 }
