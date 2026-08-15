@@ -9,10 +9,6 @@
 #include <string.h>
 #include <stdio.h>
 
-typedef struct FMemoryBuffer
-{
-    void* Data
-} FMemoryBuffer;
 typedef struct FMemoryStats
 {
     uint64 TotalAllocated;

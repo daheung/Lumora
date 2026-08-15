@@ -332,5 +332,34 @@ LUMORA_C_API uint64 Strtoui64(const char* Start, char** End, int32 Base)
 
 LUMORA_C_API char* Strtok(char* TokenString, const char* Delim, char** Context)
 {
-    return strtok_s(TokenString, Delim, Context);
+    char* Current = TokenString ? TokenString : *Context;
+
+    if (!Current)
+    {
+        return NULL;
+    }
+
+    Current += Strspn(Current, Delim);
+
+    if (*Current == '\0')
+    {
+        *Context = NULL;
+        return NULL;
+    }
+
+    char* Token = Current;
+
+    Current += Strcspn(Current, Delim);
+
+    if (*Current != '\0')
+    {
+        *Current = '\0';
+        *Context = Current + 1;
+    }
+    else
+    {
+        *Context = NULL;
+    }
+
+    return Token;
 }
