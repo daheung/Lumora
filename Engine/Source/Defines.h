@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stddef.h>
+
 typedef unsigned char       uint8;
 typedef unsigned short      uint16;
 typedef unsigned int        uint32;
@@ -16,7 +18,7 @@ typedef double              float64;
 typedef int                 bool32;
 typedef char                bool8;
 
-typedef uint64              size_t;
+// typedef uint64              size_t;
 
 #if defined(__clang__) || defined(__gcc__)
     #define STATIC_ASSERT _Static_assert
@@ -91,6 +93,9 @@ STATIC_ASSERT(sizeof(float64) == 8, "Expected float64 to be 8 bytes");
 #ifdef PLATFORM_WINDOWS
     #include "Core/Platform/Windows/WindowsPlatform.h"
 #endif
+#ifdef PLATFORM_LINUX
+    #include "Core/Platform/Linux/LinuxPlatform.h"
+#endif
 
 /* C/C++ linkage */
 #ifdef __cplusplus
@@ -129,4 +134,8 @@ STATIC_ASSERT(sizeof(float64) == 8, "Expected float64 to be 8 bytes");
 #endif
 #ifndef FORCEINLINE
     #define FORCEINLINE
+#endif
+
+#ifndef LUMORA_DEPRACATED
+    #define LUMORA_DEPRECATED(Text)
 #endif

@@ -27,86 +27,31 @@ typedef struct FArray
     void* Data;
 } FArray;
 
-LUMORA_C_API void* CArrayCreateImpl(uint64 Length, uint64 Stride);
-LUMORA_C_API void  CArrayReleaseImpl(void* Array);
-
-LUMORA_C_API uint64 CArrayGetFieldImpl(const void* const Array, uint64 Field);
-LUMORA_C_API void CArraySetFieldImpl(void* Array, uint64 Field, uint64 Value);
-
-LUMORA_C_API void* CArrayResize(void* Array, uint64 OptNewCapacity);
-
-LUMORA_C_API void* CArrayPushImpl(void* Array, const void* ValuePtr);
-LUMORA_C_API void  CArrayPopImpl(void* Array, void* Dest);
-
-LUMORA_C_API void* CArrayPopAtImpl(void* Array, uint64 Index, void* Dest);
-LUMORA_C_API void* CArrayInsertAtImpl(void* Array, uint64 Index, void* ValuePtr);
-
 #define CARRAY_DEFAULT_CAPACITY 1
 #define CARRAY_RESIZE_FACTOR 2
 
-LUMORA_C_API FORCEINLINE void* CArrayCreate(uint64 Sizeof)
-{
-    return CArrayCreateImpl(CARRAY_DEFAULT_CAPACITY, Sizeof);
-}
+LUMORA_C_API void* CArrayCreate(uint64 Sizeof);
 
-LUMORA_C_API FORCEINLINE void* CArrayCreateWithCapacity(uint64 Sizeof, uint64 Capacity)
-{
-    return CArrayCreateImpl(Capacity, Sizeof);
-}
+LUMORA_C_API void* CArrayCreateWithCapacity(uint64 Sizeof, uint64 Capacity);
 
-LUMORA_C_API FORCEINLINE void CArrayRelease(void* Array)
-{
-    CArrayReleaseImpl(Array);
-}
+LUMORA_C_API void CArrayRelease(void* Array);
 
-#define CArrayPush(Array, Value)            \
-{                                           \
-    const typeof(Value) Temp = Value;       \
-    Array = CArrayPushImpl(Array, &Temp);   \
-}
-/**
- * NOTE: could use __auto_type for temp above, but intellisense
- * for VSCode flags it as an unknown type. typeof() seems to 
- * work just fine, though. Both are GNU extensions.
- */
+LUMORA_C_API void* CArrayResize(void* Array, uint64 OptNewCapacity);
 
-LUMORA_C_API FORCEINLINE void CArrayPop(void* Array, void* ValuePtr)
-{
-    return CArrayPopImpl(Array, ValuePtr);
-}
+LUMORA_C_API void* CArrayPush(void* Array, void* ValuePtr);
 
-#define CArrayInsertAt(Array, Index, Value)             \
-{                                                       \
-    typeof(Value) Temp = Value;                         \
-    Array = CArrayInsertAtImpl(Array, Index, &Temp);    \
-}
+LUMORA_C_API void CArrayPop(void* Array, void* ValuePtr);
 
-LUMORA_C_API FORCEINLINE void* CArrayPopAt(void* Array, uint64 Index, void* Dest)
-{
-    return CArrayPopAtImpl(Array, Index, Dest);
-}
+LUMORA_C_API void* CArrayInsertAt(void* Array, uint64 Index, void* ValuePtr);
 
-LUMORA_C_API FORCEINLINE void CArrayClear(void* Array)
-{
-    CArraySetFieldImpl(Array, ARRAY_LENGTH, 0);
-}
+LUMORA_C_API void* CArrayPopAt(void* Array, uint64 Index, void* Dest);
 
-LUMORA_C_API FORCEINLINE uint64 CArrayCapacity(const void* const Array)
-{
-    return CArrayGetFieldImpl(Array, ARRAY_CAPACITY);
-}
+LUMORA_C_API void CArrayClear(void* Array);
 
-LUMORA_C_API FORCEINLINE uint64 CArrayLength(const void* const Array)
-{
-    return CArrayGetFieldImpl(Array, ARRAY_LENGTH);
-}
+LUMORA_C_API uint64 CArrayCapacity(const void* const Array);
 
-LUMORA_C_API FORCEINLINE uint64 CArrayStride(const void* const Array)
-{
-    return CArrayGetFieldImpl(Array, ARRAY_STRIDE);
-}
+LUMORA_C_API uint64 CArrayLength(const void* const Array);
 
-LUMORA_C_API FORCEINLINE void CArraySetLength(void* Array, uint64 Value)
-{
-    CArraySetFieldImpl(Array, ARRAY_LENGTH, Value);
-}
+LUMORA_C_API uint64 CArrayStride(const void* const Array);
+
+LUMORA_C_API void CArraySetLength(void* Array, uint64 Value);

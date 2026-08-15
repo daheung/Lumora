@@ -4,47 +4,81 @@
 #include "Asserts.h"
 #include "Logger.h"
 
-// static FORCEINLINE void* CopyToEmpty(void* NewArray, const void* PrevArray, uint64 PrevMax);
-// static FORCEINLINE void* CopyToEmptyWithSlack(void* NewArray, const void* PrevArray, uint64 PrevMax, uint64 ExtraSlack);
+static FORCEINLINE void* CArrayCreateImpl(uint64 Length, uint64 Stride);
+static FORCEINLINE void  CArrayReleaseImpl(void* Array);
+static FORCEINLINE uint64 CArrayGetFieldImpl(const void* const Array, uint64 Field);
+static FORCEINLINE void CArraySetFieldImpl(void* Array, uint64 Field, uint64 Value);
+static FORCEINLINE void* CArrayResizeImpl(void* Array, uint64 OptNewCapacity);
+static FORCEINLINE void* CArrayPushImpl(void* Array, const void* ValuePtr);
+static FORCEINLINE void  CArrayPopImpl(void* Array, void* Dest);
+static FORCEINLINE void* CArrayPopAtImpl(void* Array, uint64 Index, void* Dest);
+static FORCEINLINE void* CArrayInsertAtImpl(void* Array, uint64 Index, void* ValuePtr);
 
-// static FORCEINLINE void* CopyToEmpty(void* NewArray, const void* PrevArray, uint64 PrevMax)
-// {
-//     return CopyToEmptyWithSlack(NewArray, PrevArray, PrevMax, 0);
-// }
+LUMORA_C_API void* CArrayCreate(uint64 Sizeof)
+{
+    return CArrayCreateImpl(CARRAY_DEFAULT_CAPACITY, Sizeof);
+}
 
-/**
- * Copies data from one array into this array. Uses the fast path if the
- * data in question does not need a constructor.
- *
- * @param Source The source array to copy
- * @param PrevMax The previous allocated size
- * @param ExtraSlack Additional amount of memory to allocate at
- *                   the end of the buffer. Counted in elements.
- */
-// static FORCEINLINE void* CopyToEmptyWithSlack(void* NewArray, const void* PrevArray, uint64 PrevMax, uint64 ExtraSlack)
-// {
-//     uint64 Length = CArrayLength(PrevArray);
-//     uint64 NewCapacity = Length + ExtraSlack;
+LUMORA_C_API void* CArrayCreateWithCapacity(uint64 Sizeof, uint64 Capacity)
+{
+    return CArrayCreateImpl(Capacity, Sizeof);
+}
 
-//     uint64 Stride = CArrayStride(PrevArray);
-//     uint64 Capacity = CArrayCapacity(PrevArray);
-//     HCopyMemory(NewArray, PrevArray, PrevMax);
+LUMORA_C_API void CArrayRelease(void* Array)
+{
+    CArrayReleaseImpl(Array);
+}
 
-//     CArraySetFieldImpl(NewArray, ARRAY_LENGTH, Length);
-//     CArraySetFieldImpl(NewArray, ARRAY_STRIDE, Stride);
-//     CArraySetFieldImpl(NewArray, ARRAY_CAPACITY, Capacity);
-//     return NewArray;
-// }
+LUMORA_C_API void* CArrayResize(void* Array, uint64 OptNewCapacity)
+{
+    return CArrayResizeImpl(Array, OptNewCapacity);
+}
 
-// static FORCEINLINE uint32 GetInitCapacity()
-// {
-//     return 0;
-// }
+LUMORA_C_API void* CArrayPush(void* Array, void* ValuePtr)
+{
+    return CArrayPushImpl(Array, ValuePtr);
+}
 
-// static FORCEINLINE uint32 DefaultCalculateSlackGrow(uint32 NumElements, uint32 NumAllocatedElements, size_t BytesPerElement)
-// {
-//     return 0;
-// }
+LUMORA_C_API void CArrayPop(void* Array, void* ValuePtr)
+{
+    return CArrayPopImpl(Array, ValuePtr);
+}
+
+LUMORA_C_API void* CArrayInsertAt(void* Array, uint64 Index, void* ValuePtr)
+{
+    return CArrayInsertAtImpl(Array, Index, ValuePtr);
+}
+
+LUMORA_C_API void* CArrayPopAt(void* Array, uint64 Index, void* Dest)
+{
+    return CArrayPopAtImpl(Array, Index, Dest);
+}
+
+LUMORA_C_API void CArrayClear(void* Array)
+{
+    CArraySetFieldImpl(Array, ARRAY_LENGTH, 0);
+}
+
+LUMORA_C_API uint64 CArrayCapacity(const void* const Array)
+{
+    return CArrayGetFieldImpl(Array, ARRAY_CAPACITY);
+}
+
+LUMORA_C_API uint64 CArrayLength(const void* const Array)
+{
+    return CArrayGetFieldImpl(Array, ARRAY_LENGTH);
+}
+
+LUMORA_C_API uint64 CArrayStride(const void* const Array)
+{
+    return CArrayGetFieldImpl(Array, ARRAY_STRIDE);
+}
+
+LUMORA_C_API void CArraySetLength(void* Array, uint64 Value)
+{
+    CArraySetFieldImpl(Array, ARRAY_LENGTH, Value);
+}
+
 
 
 LUMORA_C_API void* CArrayCreateImpl(uint64 Length, uint64 Stride)
@@ -82,7 +116,7 @@ LUMORA_C_API void CArraySetFieldImpl(void* Array, uint64 Field, uint64 Value)
 }
 
 /** TODO: Use OptNewCapacity Param */
-LUMORA_C_API void* CArrayResize(void* Array, uint64 OptNewCapacity)
+LUMORA_C_API void* CArrayResizeImpl(void* Array, uint64 OptNewCapacity)
 {
     uint64 Length = CArrayLength(Array);
     uint64 Stride = CArrayStride(Array);
@@ -151,7 +185,7 @@ LUMORA_C_API void* CArrayPopAtImpl(void* RESTRICT Array, uint64 Index, void* RES
     return Array;
 }
 
-LUMORA_C_API void *CArrayInsertAtImpl(void *Array, uint64 Index, void *ValuePtr)
+LUMORA_C_API void* CArrayInsertAtImpl(void *Array, uint64 Index, void *ValuePtr)
 {
     LUMORA_ASSERT_MSG(Array, "Array is null.");
     LUMORA_ASSERT_MSG(ValuePtr, "Destination is null.");

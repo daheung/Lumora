@@ -1,139 +1,139 @@
-# #!/bin/bash
-# # Build script for engine
-# set echo on
+#!/bin/bash
+# Build script for engine
+set echo on
 
-# mkdir -p ../bin
+mkdir -p ../bin
 
-# cFilenames=$(find . -type f -name "*.c")
+cFilenames=$(find . -type f -name "*.c")
 
-# # echo "Files:" $cFilenames
-
-# assembly="engine"
-# compilerFlags="-g -shared -fdeclspec -fPIC"
-# # -fms-extrensions
-# # -Wall -Werror
-# includeFlags="-Isrc -I$VULKAN_SDK/include"
-# linkerFlags="-lvulkan -lxcb -lX11 -lX11-xcb -lxkbcommon -L%VULKAN_SDK/lib -L/usr/X11R6/lib"
-# defines="-D_DEBUG -DLUMORA_EXPORT"
-
-# echo "Building $assembly..."
-# clang $cFilenames $compilerFlags -o ../bin/lib$assembly.so $defines $includeFlags $linkerFlags
-
-#!/usr/bin/env bash
-# Build script for Lumora Engine on Linux
-
-set -e
-set -x
+# echo "Files:" $cFilenames
 
 assembly="engine"
+compilerFlags="-g -shared -fdeclspec -fPIC"
+# -fms-extrensions
+# -Wall -Werror
+includeFlags="-ISource -ISource/Core -I$VULKAN_SDK/include"
+linkerFlags="-lvulkan -lxcb -lX11 -lX11-xcb -lxkbcommon -L%VULKAN_SDK/lib -L/usr/X11R6/lib"
+defines="-D_DEBUG -DLUMORA_EXPORT"
 
-sourceDir="Source"
-buildDir="../bin/obj"
-outputDir="../bin"
-outputFile="${outputDir}/lib${assembly}.so"
+echo "Building $assembly..."
+clang $cFilenames $compilerFlags -o ../bin/lib$assembly.so $defines $includeFlags $linkerFlags
 
-mkdir -p "${buildDir}"
-mkdir -p "${outputDir}"
+# !/usr/bin/env bash
+# Build script for Lumora Engine on Linux
 
-if [[ -z "${VULKAN_SDK:-}" ]]; then
-    echo "Error: VULKAN_SDK environment variable is not set."
-    exit 1
-fi
+# set -e
+# set -x
 
-commonCompilerFlags=(
-    -g
-    -fPIC
-    -fdeclspec
-    -Wall
-    -Wextra
-)
+# assembly="engine"
 
-cCompilerFlags=(
-    -std=c17
-)
+# sourceDir="Source"
+# buildDir="../bin/obj"
+# outputDir="../bin"
+# outputFile="${outputDir}/lib${assembly}.so"
 
-cppCompilerFlags=(
-    -std=c++17
-)
+# mkdir -p "${buildDir}"
+# mkdir -p "${outputDir}"
 
-includeFlags=(
-    "-I${sourceDir}"
-    "-I${sourceDir}/Core"
-    "-I${VULKAN_SDK}/include"
-)
+# if [[ -z "${VULKAN_SDK:-}" ]]; then
+#     echo "Error: VULKAN_SDK environment variable is not set."
+#     exit 1
+# fi
 
-defines=(
-    -D_DEBUG
-    -DLUMORA_EXPORT
-)
+# commonCompilerFlags=(
+#     -g
+#     -fPIC
+#     -fdeclspec
+#     -Wall
+#     -Wextra
+# )
 
-linkerFlags=(
-    -shared
-    "-L${VULKAN_SDK}/lib"
-    -L/usr/X11R6/lib
-    -lvulkan
-    -lxcb
-    -lX11
-    -lX11-xcb
-    -lxkbcommon
-)
+# cCompilerFlags=(
+#     -std=c17
+# )
 
-objectFiles=()
+# cppCompilerFlags=(
+#     -std=c++17
+# )
 
-echo "Compiling C source files..."
+# includeFlags=(
+#     "-I${sourceDir}"
+#     "-I${sourceDir}/Core"
+#     "-I${VULKAN_SDK}/include"
+# )
 
-while IFS= read -r -d '' sourceFile; do
-    relativePath="${sourceFile#${sourceDir}/}"
-    objectFile="${buildDir}/${relativePath}.o"
+# defines=(
+#     -D_DEBUG
+#     -DLUMORA_EXPORT
+# )
 
-    mkdir -p "$(dirname "${objectFile}")"
+# linkerFlags=(
+#     -shared
+#     "-L${VULKAN_SDK}/lib"
+#     -L/usr/X11R6/lib
+#     -lvulkan
+#     -lxcb
+#     -lX11
+#     -lX11-xcb
+#     -lxkbcommon
+# )
 
-    clang \
-        "${commonCompilerFlags[@]}" \
-        "${cCompilerFlags[@]}" \
-        "${defines[@]}" \
-        "${includeFlags[@]}" \
-        -c "${sourceFile}" \
-        -o "${objectFile}"
+# objectFiles=()
 
-    objectFiles+=("${objectFile}")
-done < <(
-    find "${sourceDir}" -type f -name "*.c" -print0
-)
+# echo "Compiling C source files..."
 
-echo "Compiling C++ source files..."
+# while IFS= read -r -d '' sourceFile; do
+#     relativePath="${sourceFile#${sourceDir}/}"
+#     objectFile="${buildDir}/${relativePath}.o"
 
-while IFS= read -r -d '' sourceFile; do
-    relativePath="${sourceFile#${sourceDir}/}"
-    objectFile="${buildDir}/${relativePath}.o"
+#     mkdir -p "$(dirname "${objectFile}")"
 
-    mkdir -p "$(dirname "${objectFile}")"
+#     clang \
+#         "${commonCompilerFlags[@]}" \
+#         "${cCompilerFlags[@]}" \
+#         "${defines[@]}" \
+#         "${includeFlags[@]}" \
+#         -c "${sourceFile}" \
+#         -o "${objectFile}"
 
-    clang++ \
-        "${commonCompilerFlags[@]}" \
-        "${cppCompilerFlags[@]}" \
-        "${defines[@]}" \
-        "${includeFlags[@]}" \
-        -c "${sourceFile}" \
-        -o "${objectFile}"
+#     objectFiles+=("${objectFile}")
+# done < <(
+#     find "${sourceDir}" -type f -name "*.c" -print0
+# )
 
-    objectFiles+=("${objectFile}")
-done < <(
-    find "${sourceDir}" -type f \
-        \( -name "*.cpp" -o -name "*.cc" -o -name "*.cxx" \) \
-        -print0
-)
+# echo "Compiling C++ source files..."
 
-if [[ ${#objectFiles[@]} -eq 0 ]]; then
-    echo "Error: No C or C++ source files were found in ${sourceDir}."
-    exit 1
-fi
+# while IFS= read -r -d '' sourceFile; do
+#     relativePath="${sourceFile#${sourceDir}/}"
+#     objectFile="${buildDir}/${relativePath}.o"
 
-echo "Linking ${outputFile}..."
+#     mkdir -p "$(dirname "${objectFile}")"
 
-clang++ \
-    "${objectFiles[@]}" \
-    "${linkerFlags[@]}" \
-    -o "${outputFile}"
+#     clang++ \
+#         "${commonCompilerFlags[@]}" \
+#         "${cppCompilerFlags[@]}" \
+#         "${defines[@]}" \
+#         "${includeFlags[@]}" \
+#         -c "${sourceFile}" \
+#         -o "${objectFile}"
 
-echo "Build succeeded: ${outputFile}"
+#     objectFiles+=("${objectFile}")
+# done < <(
+#     find "${sourceDir}" -type f \
+#         \( -name "*.cpp" -o -name "*.cc" -o -name "*.cxx" \) \
+#         -print0
+# )
+
+# if [[ ${#objectFiles[@]} -eq 0 ]]; then
+#     echo "Error: No C or C++ source files were found in ${sourceDir}."
+#     exit 1
+# fi
+
+# echo "Linking ${outputFile}..."
+
+# clang++ \
+#     "${objectFiles[@]}" \
+#     "${linkerFlags[@]}" \
+#     -o "${outputFile}"
+
+# echo "Build succeeded: ${outputFile}"

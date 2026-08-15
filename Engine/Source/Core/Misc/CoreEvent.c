@@ -89,7 +89,7 @@ LUMORA_C_API bool8 RegisterEvent(uint16 Code, void *Listener, OnEventFunc OnEven
     FRegisteredEvent Event = {};
     Event.Listener = Listener;
     Event.Callback = OnEvent;
-    CArrayPush(GEventSystemState.Registered[Code].Events, Event);
+    CArrayPush(GEventSystemState.Registered[Code].Events, &Event);
 
     return TRUE;
 }
