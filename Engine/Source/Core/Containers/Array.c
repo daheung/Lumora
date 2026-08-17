@@ -9,9 +9,8 @@ static FORCEINLINE void  CArrayReleaseImpl(void* Array);
 static FORCEINLINE uint64 CArrayGetFieldImpl(const void* const Array, uint64 Field);
 static FORCEINLINE void CArraySetFieldImpl(void* Array, uint64 Field, uint64 Value);
 static FORCEINLINE void* CArrayResizeImpl(void* Array, uint64 OptNewCapacity);
-static FORCEINLINE void* CArrayPushImpl(void* Array, const void* ValuePtr);
-static FORCEINLINE void  CArrayPopImpl(void* Array, void* Dest);
-static FORCEINLINE void* CArrayPopAtImpl(void* Array, uint64 Index, void* Dest);
+static FORCEINLINE void CArrayPopImpl(void* RESTRICT Array, void* RESTRICT Dest);
+static FORCEINLINE void* CArrayPopAtImpl(void* RESTRICT Array, uint64 Index, void* RESTRICT Dest);
 static FORCEINLINE void* CArrayInsertAtImpl(void* Array, uint64 Index, void* ValuePtr);
 
 LUMORA_C_API void* CArrayCreate(uint64 Sizeof)
@@ -34,14 +33,9 @@ LUMORA_C_API void* CArrayResize(void* Array, uint64 OptNewCapacity)
     return CArrayResizeImpl(Array, OptNewCapacity);
 }
 
-LUMORA_C_API void* CArrayPush(void* Array, void* ValuePtr)
-{
-    return CArrayPushImpl(Array, ValuePtr);
-}
-
 LUMORA_C_API void CArrayPop(void* Array, void* ValuePtr)
 {
-    return CArrayPopImpl(Array, ValuePtr);
+    CArrayPopImpl(Array, ValuePtr);
 }
 
 LUMORA_C_API void* CArrayInsertAt(void* Array, uint64 Index, void* ValuePtr)
@@ -128,7 +122,7 @@ void* CArrayResizeImpl(void* Array, uint64 OptNewCapacity)
     return NewArray;
 }
 
-void* CArrayPushImpl(void *Array, const void *ValuePtr)
+LUMORA_C_API void* CArrayPushImpl(void *Array, const void *ValuePtr)
 {
     uint64 Length = CArrayLength(Array);
     uint64 Stride = CArrayStride(Array);

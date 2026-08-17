@@ -30,6 +30,9 @@ typedef struct FArray
 #define CARRAY_DEFAULT_CAPACITY 1
 #define CARRAY_RESIZE_FACTOR 2
 
+/* Implementation detail */
+LUMORA_C_API void* CArrayPushImpl(void* Array, const void* ValuePtr);
+
 LUMORA_C_API void* CArrayCreate(uint64 Sizeof);
 
 LUMORA_C_API void* CArrayCreateWithCapacity(uint64 Sizeof, uint64 Capacity);
@@ -38,7 +41,8 @@ LUMORA_C_API void CArrayRelease(void* Array);
 
 LUMORA_C_API void* CArrayResize(void* Array, uint64 OptNewCapacity);
 
-LUMORA_C_API void* CArrayPush(void* Array, void* ValuePtr);
+#define CArrayPush(Array, ValuePtr) \
+    ((Array) = CArrayPushImpl((Array), (ValuePtr)))
 
 LUMORA_C_API void CArrayPop(void* Array, void* ValuePtr);
 

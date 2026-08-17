@@ -3,7 +3,7 @@
 #include <LaunchMain.h>
 
 /** TODO: Remove this */
-#include <HAL/LumoraMemory.h>
+#include "Core/HAL/LumoraMemory.h"
 
 /** Define the function to create a game. */
 bool8 CreateGame(FGame* OutGame)

@@ -3,7 +3,6 @@
 #include "HAL/LumoraMemory.h"
 #include "Containers/Array.h"
 #include "Asserts.h"
-#include "CoreEvent.h"
 #include "Logger.h"
 
 typedef struct FRegisteredEvent
@@ -75,7 +74,7 @@ LUMORA_C_API bool8 RegisterEvent(uint16 Code, void *Listener, OnEventFunc OnEven
      * Duplicate registrations may leave a stale listener reference if the listener
      *  is unregistered only once and later destroyed.
      */
-    uint32 RegisteredCount = CArrayLength(GEventSystemState.Registered[Code].Events);
+    uint32 RegisteredCount = (uint32)CArrayLength(GEventSystemState.Registered[Code].Events);
     for (uint32 Index = 0; Index < RegisteredCount; ++Index)
     {
         if (GEventSystemState.Registered[Code].Events[Index].Listener == Listener)
@@ -105,7 +104,7 @@ LUMORA_C_API bool8 UnregisterEvent(uint16 Code, void *Listener, OnEventFunc OnEv
         return FALSE;
     }
 
-    uint32 RegisteredCount = CArrayLength(GEventSystemState.Registered[Code].Events);
+    uint32 RegisteredCount = (uint32)CArrayLength(GEventSystemState.Registered[Code].Events);
     for (uint32 Index = 0; Index < RegisteredCount; ++Index)
     {
         FRegisteredEvent Event = GEventSystemState.Registered[Code].Events[Index];

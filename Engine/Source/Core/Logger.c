@@ -1,6 +1,7 @@
 #include "Logger.h"
 #include "Asserts.h"
 #include "Platform/Platform.h"
+#include "Core/Misc//CString.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -35,8 +36,7 @@ void LogOutput(ELogLevel LogLevel, const char* Message, ...)
      * Technically imposes a 64k character limit on a single log entry, but ...
      * DON't DO THAT!
      */
-    const int32 MessageLength = 65536;
-    char OutMessage[MessageLength];
+    char OutMessage[65536];
     memset(OutMessage, 0, sizeof(OutMessage));
 
     /** 
@@ -45,9 +45,9 @@ void LogOutput(ELogLevel LogLevel, const char* Message, ...)
      * cases, and as a result throws a strange error here. The workaround for now is to just use __builtin_va_list,
      * which is the type GCC/Clang's va_start expects.
      */
-    __builtin_va_list Args;
+    va_list Args;
     va_start(Args, Message);
-    vsprintf(OutMessage, Message, Args);
+    GetVarArgs(OutMessage, sizeof(OutMessage), Message, Args);
     va_end(Args);
 
     char OutMessage2[65536];
