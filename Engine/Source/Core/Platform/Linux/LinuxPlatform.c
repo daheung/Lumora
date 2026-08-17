@@ -361,7 +361,8 @@ LUMORA_C_API void PlatformSleep(uint64 MilliSecond)
 
 void PlatformGetRequiredExtensionNames(const char*** CArrayNames)
 {
-    CArrayPush(*CArrayNames, &"VK_KHR_xcb_surface");    // VK_KHR_xlib_surface?
+    const char* LinuxSurface = "VK_KHR_xcb_surface"; 
+    CArrayPush(*CArrayNames, &LinuxSurface);    // VK_KHR_xlib_surface?
 }
 
 /** Surface createion for Vulkan. */
@@ -371,8 +372,8 @@ bool8 PlatformCreateVulkanSurface(struct FPlatformState* PlatformState, struct F
     FInternalState* InternalState = (FInternalState*)PlatformState->InternalState;
 
     VkXcbSurfaceCreateInfoKHR CreateInfo = { VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR };
-    CreateInfo.connection = InternalState.Connection;
-    CreateInfo.window = InternalState.Window;
+    CreateInfo.connection = InternalState->Connection;
+    CreateInfo.window = InternalState->Window;
 
     VkResult Result = vkCreateXcbSurfaceKHR(
         VulkanContext->Instance,
@@ -380,7 +381,7 @@ bool8 PlatformCreateVulkanSurface(struct FPlatformState* PlatformState, struct F
         VulkanContext->Allocator,
         &InternalState->Surface
     );
-    if (Result != VK_SUCCEES)
+    if (Result != VK_SUCCESS)
     {
         LUMORA_FATAL("Vulkan surface creation failed.");
         return FALSE;

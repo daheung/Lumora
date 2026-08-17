@@ -1,5 +1,7 @@
 #include "Defines.h"
 
+#include <stdarg.h>
+
 LUMORA_C_API bool8 IsPureAscii(const char* Str);
 
 LUMORA_C_API bool8 IsPureAsciiWithLen(const char* Str, const size_t StrLen);

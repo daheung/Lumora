@@ -39,11 +39,11 @@ LUMORA_C_API void LogOutput(ELogLevel LogLevel, const char* Message, ...);
         }                                                       \
     } while(0)
 
-#define LUMORA_FATAL(Message, ...) LogOutput(LOG_LEVEL_FATAL, Message, ##__VA_ARGS__);
+#define LUMORA_FATAL(Message, ...) LUMORA_LOG(0, LOG_LEVEL_FATAL, Message, ##__VA_ARGS__);
 
 #ifndef LUMORA_ERROR
     /** Logs an error-level message */
-    #define LUMORA_ERROR(Message, ...) LogOutput(LOG_LEVEL_ERROR, Message, ##__VA_ARGS__);
+    #define LUMORA_ERROR(Message, ...) LUMORA_LOG(0, LOG_LEVEL_ERROR, Message, ##__VA_ARGS__);
 #endif
 
 #if LOG_WARN_ENABLED

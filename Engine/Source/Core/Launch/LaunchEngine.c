@@ -63,6 +63,7 @@ LUMORA_C_API bool8 ApplicationCreate(struct FGame* GameInstance)
     if (!bRendererInitSucceed)
     {
         LUMORA_FATAL("Failed to initialize renderer. Aborting applocation.");
+        return FALSE;
     }
 
     /** Initialize the Game */
