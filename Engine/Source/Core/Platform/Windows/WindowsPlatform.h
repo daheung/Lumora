@@ -5,3 +5,7 @@
 #define NORETURN __declspec(noreturn)
 #define INLINE inline
 #define FORCEINLINE __forceinline
+
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+    #define LUMORA_NODISCARD [[nodiscard]]
+#endif

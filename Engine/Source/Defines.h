@@ -18,6 +18,12 @@ typedef double              float64;
 typedef int                 bool32;
 typedef char                bool8;
 
+typedef char                ANSICHAR;
+typedef wchar_t             WIDECHAR;
+typedef uint8               UTF8CHAR;
+typedef uint16              UTF16CHAR;
+typedef uint32              UTF32CHAR;
+
 // typedef uint64              size_t;
 
 #if defined(__clang__) || defined(__gcc__)
@@ -135,7 +141,10 @@ STATIC_ASSERT(sizeof(float64) == 8, "Expected float64 to be 8 bytes");
 #ifndef FORCEINLINE
     #define FORCEINLINE
 #endif
+#ifndef NODISCARD
+    #define NODISCARD
+#endif
 
-#ifndef LUMORA_DEPRACATED
+#ifndef LUMORA_DEPRECATED
     #define LUMORA_DEPRECATED(Text)
 #endif

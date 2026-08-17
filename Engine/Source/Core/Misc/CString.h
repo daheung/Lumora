@@ -1,10 +1,12 @@
 #include "Defines.h"
 
-LUMORA_C_API bool8 IsPureAnsi(const char* Str);
+LUMORA_C_API bool8 IsPureAscii(const char* Str);
 
-LUMORA_C_API bool8 IsPureAnsiWithLen(const char* Str, const size_t StrLen);
+LUMORA_C_API bool8 IsPureAsciiWithLen(const char* Str, const size_t StrLen);
 
 LUMORA_C_API bool8 IsNumeric(const char* Str);
+
+LUMORA_C_API bool8 IsEqual(const char* String1, const char* String2);
 
 LUMORA_C_API char* Strcpy(char* Dest, size_t DestCount, const char* Src);
 
@@ -26,7 +28,7 @@ LUMORA_C_API int32 Strnicmp(const char* String1, const char* String2, size_t Cou
 
 LUMORA_C_API char* Strdup(const char* String);
 
-LUMORA_C_API char* Stridup(const char* String, size_t Count);
+LUMORA_C_API char* Strndup(const char* String, size_t Count);
 
 LUMORA_C_API const char* Strnistr(const char* Str, int32 InStrLen, const char* Find, int32 FindLen);
 
@@ -63,3 +65,5 @@ LUMORA_C_API int64 Strtoi64(const char* Start, char** End, int32 Base);
 LUMORA_C_API uint64 Strtoui64(const char* Start, char** End, int32 Base);
 
 LUMORA_C_API char* Strtok(char* TokenString, const char* Delim, char** Context);
+
+LUMORA_C_API int32 GetVarArgs(char* Dest, size_t DestSize, const char* Fmt, va_list ArgPtr);

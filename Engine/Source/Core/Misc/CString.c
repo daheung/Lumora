@@ -8,6 +8,8 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 LUMORA_C_API bool8 IsPureAscii(const char* Str)
 {
@@ -62,6 +64,12 @@ LUMORA_C_API bool8 IsNumeric(const char* Str)
     }
 
     return TRUE;
+}
+
+/** Case-sensitive string comparison. True if the same, otherwise false. */
+LUMORA_C_API bool8 IsEqual(const char *String1, const char *String2)
+{
+    return Strcmp(String1, String2) == 0;
 }
 
 LUMORA_C_API char* Strcpy(char* Dest, size_t DestCount, const char* Src)
@@ -131,7 +139,7 @@ LUMORA_C_API char *Strdup(const char* String)
     return OutString;
 }
 
-LUMORA_C_API char *Strndup(const char *String, size_t Count)
+LUMORA_C_API char* Strndup(const char* String, size_t Count)
 {
     const size_t Length = Strnlen(String, Count);
     char* OutString = HAllocate((Length + 1) * sizeof(char), MEMORY_TAG_STRING);
@@ -362,4 +370,10 @@ LUMORA_C_API char* Strtok(char* TokenString, const char* Delim, char** Context)
     }
 
     return Token;
+}
+
+LUMORA_C_API int32 GetVarArgs(char* Dest, size_t DestSize, const char* Fmt, va_list ArgPtr)
+{
+    int32 Result = vsnprintf(Dest, DestSize, Fmt, ArgPtr);
+    return Result;
 }
