@@ -1,0 +1,65 @@
+{
+    "version": 6,
+
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 25,
+        "patch": 0
+    },
+
+    "configurePresets": [
+        {
+            "name": "clang-ninja",
+            "displayName": "Clang + Ninja",
+            "generator": "Ninja",
+
+            "binaryDir": "${sourceDir}/build/clang-ninja",
+
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+
+        {
+            "name": "gcc-ninja",
+            "displayName": "GCC + Ninja",
+            "generator": "Ninja",
+
+            "binaryDir": "${sourceDir}/build/gcc-ninja",
+
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+
+        {
+            "name": "msvc-vs2022",
+            "displayName": "MSVC + Visual Studio 2022",
+            "generator": "Visual Studio 17 2022",
+
+            "binaryDir": "${sourceDir}/build/msvc-vs2022",
+
+            "architecture": "x64"
+        }
+    ],
+
+    "buildPresets": [
+        {
+            "name": "clang-ninja",
+            "configurePreset": "clang-ninja"
+        },
+
+        {
+            "name": "gcc-ninja",
+            "configurePreset": "gcc-ninja"
+        },
+
+        {
+            "name": "msvc-vs2022",
+            "configurePreset": "msvc-vs2022",
+            "configuration": "Debug"
+        }
+    ]
+}
