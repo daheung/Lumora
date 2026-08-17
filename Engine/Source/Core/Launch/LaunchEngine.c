@@ -5,8 +5,10 @@
 #include "Platform/Platform.h"
 #include "HAL/LumoraMemory.h"
 #include "Misc/CoreEvent.h"
+#include "Misc/Clock.h"
 #include "InputCore/Input.h"
 
+#include "Renderer/RendererFrontend.h"
 typedef struct FApplicationState
 {
     struct FGame* GameInstance;
@@ -15,6 +17,7 @@ typedef struct FApplicationState
     FPlatformState PlatformState;
     int16 Width;
     int16 Height;
+    FClock Clock;
     float64 LastTime;
 } FApplicationState;
 
@@ -55,7 +58,16 @@ LUMORA_C_API bool8 ApplicationCreate(struct FGame* GameInstance)
         return FALSE;
     }
 
-    if (!GApplicationState.GameInstance->InitializeFunc(GApplicationState.GameInstance))
+    /** Initialize Renderer */
+    const bool8 bRendererInitSucceed = InitializeRenderer(GameInstance->ApplicationConfig.ApplicationName, &GApplicationState.PlatformState);
+    if (!bRendererInitSucceed)
+    {
+        LUMORA_FATAL("Failed to initialize renderer. Aborting applocation.");
+    }
+
+    /** Initialize the Game */
+    const bool8 bGameInitSucceed = GApplicationState.GameInstance->InitializeFunc(GApplicationState.GameInstance);
+    if (!bGameInitSucceed)
     {
         LUMORA_FATAL("Game failed to initialize.");
         return FALSE;
@@ -71,6 +83,14 @@ LUMORA_C_API bool8 ApplocationLoop()
 {
     LUMORA_INFO(HGetMemoryUseageStr());
 
+    StartClock(&GApplicationState.Clock);
+    UpdateClock(&GApplicationState.Clock);
+    GApplicationState.LastTime = GApplicationState.Clock.ElapsedTime;
+
+    float64 RunningTime = 0;
+    uint8 FrameCount = 0;
+    float64 TargetFrameSeconds = 1.0f / 60;
+
     while (GApplicationState.bIsRunning)
     {
         if (!PlatformPumpMessage(&GApplicationState.PlatformState))
@@ -80,18 +100,51 @@ LUMORA_C_API bool8 ApplocationLoop()
 
         if (!GApplicationState.bIsSuspended)
         {
-            if (!GApplicationState.GameInstance->UpdateFunc(GApplicationState.GameInstance, (float32)0))
+            /** Update clock and get delta time. */
+            UpdateClock(&GApplicationState.Clock);
+            float64 CurTime = GApplicationState.Clock.ElapsedTime;
+            float64 DeltaTime = (CurTime - GApplicationState.LastTime);
+            float64 FrameStartTime = PlatformGetAbsoluteTime();
+            
+            const bool8 bUpdateSucceed = GApplicationState.GameInstance->UpdateFunc(GApplicationState.GameInstance, (float32)DeltaTime);
+            if (!bUpdateSucceed)
             {
                 LUMORA_FATAL("Game update failed, shutting down.");
                 GApplicationState.bIsRunning = FALSE;
                 break;
             }
 
-            if (!GApplicationState.GameInstance->RenderFunc(GApplicationState.GameInstance, (float32)0))
+            const bool8 bRenderSucceed = GApplicationState.GameInstance->RenderFunc(GApplicationState.GameInstance, (float32)DeltaTime);
+            if (!bRenderSucceed)
             {
                 LUMORA_FATAL("Game render failed, shutting down.");
                 GApplicationState.bIsRunning = FALSE;
                 break;
+            }
+
+            /** TODO: Refactor packet creation */
+            FRenderPacket Packet = {};
+            Packet.DeltaTime = DeltaTime;
+            RendererDrawFrame(&Packet);
+
+            /** Figure out how long the frame took and, if below. */
+            float64 FrameEndTime = PlatformGetAbsoluteTime();
+            float64 FrameElapsedTime = FrameEndTime - FrameStartTime;
+            RunningTime += FrameElapsedTime;
+            float64 RemainingSeconds = TargetFrameSeconds - FrameElapsedTime;
+            
+            if (RemainingSeconds > 0)
+            {
+                uint64 RemainingMs = (RemainingSeconds * 1000);
+
+                /** If there is time left, give it back to the OS. */
+                bool8 LimitFrames = FALSE;
+                if (RemainingMs > 0 && LimitFrames)
+                {
+                    PlatformSleep(RemainingMs - 1);
+                }
+
+                FrameCount++;
             }
 
             /**
@@ -101,6 +154,9 @@ LUMORA_C_API bool8 ApplocationLoop()
              * this frame ends.
              */
             UpdateInput(0);
+
+            /** Update last time */
+            GApplicationState.LastTime = CurTime;
         }
     }
 
@@ -116,7 +172,8 @@ LUMORA_C_API bool8 ApplocationLoop()
     ReleaseEvent();
     ReleaseInput();
     ReleaseMemory();
-
+    ReleaseRenderer();
+    
     return TRUE;
 }
 

@@ -2,16 +2,23 @@
 #include "Logger.h"
 #include "Asserts.h"
 #include "InputCore/Input.h"
+#include "Core/Containers/Array.h"
 
 #if PLATFORM_WINDOWS
 
 #include <Windows.h>
 #include <windowsx.h> // param input extraction
 
+/** For surface createion */
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_win32.h>
+#include <Vulkan/VulkanTypes.inl>
+
 typedef struct FInternalState 
 {
     HINSTANCE Instance;
     HWND Hwnd;
+    VkSurfaceKHR Surface;
 } FInternalState;
 
 /** Clock */
@@ -32,7 +39,7 @@ bool8 PlatformStartup(FPlatformState* PlatformState, const char* ApplicationName
 
     /** Setup and register window class. */
     HICON Icon = LoadIcon(InternalState->Instance, IDI_APPLICATION);
-    WNDCLASSA WindowClass = {};
+    WNDCLASSA WindowClass = { 0 };
     WindowClass.style = CS_DBLCLKS;
     WindowClass.lpfnWndProc = Win32ProcessMessage;
     WindowClass.cbClsExtra = 0;
@@ -128,7 +135,7 @@ void PlatformShutdown(FPlatformState* PlatformState)
 
 bool8 PlatformPumpMessage(FPlatformState* PlatformState)
 {
-    MSG Message = {};
+    MSG Message = { 0, };
     while (PeekMessage(&Message, NULL, 0, 0, PM_REMOVE))
     {
         TranslateMessage(&Message);
@@ -206,7 +213,7 @@ static FORCEINLINE void PlatformConsoleWriteImpl(const char* Message, uint8 Colo
 
 float64 PlatformGetAbsoluteTime(void)
 {
-    LARGE_INTEGER CurrentTime = {};
+    LARGE_INTEGER CurrentTime = { 0 };
     QueryPerformanceCounter(&CurrentTime);
     return (float64)CurrentTime.QuadPart * GClockFrequency;
 }
@@ -214,6 +221,33 @@ float64 PlatformGetAbsoluteTime(void)
 void PlatformSleep(uint64 MilliSecond)
 {
     Sleep(MilliSecond);
+}
+
+void PlatformGetRequiredExtensionNames(const char*** CArrayNames)
+{
+    const char* Win32Surface = "VK_KHR_win32_surface";
+    CArrayPush(*CArrayNames, &Win32Surface);
+}
+
+/** Surface createion for Vulkan. */
+bool8 PlatformCreateVulkanSurface(struct FPlatformState* PlatformState, struct FVulkanContext* VulkanContext)
+{
+    /** Siply cold-cast to the known type. */
+    FInternalState* InternalState = (FInternalState*)PlatformState->InternalState;
+    
+    VkWin32SurfaceCreateInfoKHR CreateInfo = { VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
+    CreateInfo.hinstance = InternalState->Instance;
+    CreateInfo.hwnd = InternalState->Hwnd;
+
+    VkResult Result = vkCreateWin32SurfaceKHR(VulkanContext->Instance, &CreateInfo, VulkanContext->Allocator, &InternalState->Surface);
+    if (Result != VK_SUCCESS)
+    {
+        LUMORA_FATAL("Vulkan surface createion failed.");
+        return FALSE;
+    }
+
+    VulkanContext->Surface = InternalState->Surface;
+    return TRUE;
 }
 
 LRESULT CALLBACK Win32ProcessMessage(HWND Hwnd, UINT Message, WPARAM wParam, LPARAM lParam)

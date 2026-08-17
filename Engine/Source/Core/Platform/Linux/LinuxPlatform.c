@@ -8,6 +8,7 @@
 #include "Core/Misc/CoreEvent.h"
 #include "InputCore/Input.h"
 #include "Core/Misc/CString.h"
+#include "Core/Containers/Array.h"
 
 #include <xcb/xcb.h>
 #include <X11/keysym.h>
@@ -28,6 +29,12 @@
 #include <stdio.h>
 #include <string.h>
 
+/** For surface creation */
+#define VK_USE_PLATFORM_XCB_KHR
+#include <vulkan/vulkan.h>
+#include "Renderer/Vulkan/VulkanTypes.inl"
+
+
 typedef struct FInternalState
 {
     Display* Display;
@@ -36,6 +43,7 @@ typedef struct FInternalState
     xcb_screen_t* Screen;
     xcb_atom_t wmProtocols;
     xcb_atom_t wmDeleteWindow;
+    VkSurfaceKHR Surface;
 } FInternalState;
 
 static FORCEINLINE EKeys TranslateKeyCode(uint32 xKeyCode);
@@ -349,6 +357,37 @@ LUMORA_C_API void PlatformSleep(uint64 MilliSecond)
 
     // usleep((MilliSecond % 1000) * 1000);
 #endif
+}
+
+void PlatformGetRequiredExtensionNames(const char*** CArrayNames)
+{
+    CArrayPush(*CArrayNames, &"VK_KHR_xcb_surface");    // VK_KHR_xlib_surface?
+}
+
+/** Surface createion for Vulkan. */
+bool8 PlatformCreateVulkanSurface(struct FPlatformState* PlatformState, struct FVulkanContext* VulkanContext)
+{
+    /** Simply cold-cast to the known type. */
+    FInternalState* InternalState = (FInternalState*)PlatformState->InternalState;
+
+    VkXcbSurfaceCreateInfoKHR CreateInfo = { VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR };
+    CreateInfo.connection = InternalState.Connection;
+    CreateInfo.window = InternalState.Window;
+
+    VkResult Result = vkCreateXcbSurfaceKHR(
+        VulkanContext->Instance,
+        &CreateInfo,
+        VulkanContext->Allocator,
+        &InternalState->Surface
+    );
+    if (Result != VK_SUCCEES)
+    {
+        LUMORA_FATAL("Vulkan surface creation failed.");
+        return FALSE;
+    }
+
+    VulkanContext->Surface = InternalState->Surface;
+    return TRUE;
 }
 
 #define KEY_RETURN(XCBCode, LumoraCode) case XCBCode: return LumoraCode
