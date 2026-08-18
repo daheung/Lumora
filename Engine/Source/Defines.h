@@ -148,3 +148,6 @@ STATIC_ASSERT(sizeof(float64) == 8, "Expected float64 to be 8 bytes");
 #ifndef LUMORA_DEPRECATED
     #define LUMORA_DEPRECATED(Text)
 #endif
+#ifndef LUMORA_UNUSED_PARAM
+    #define LUMORA_UNUSED_PARAM(Param) ((void)(Param))
+#endif

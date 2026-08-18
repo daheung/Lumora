@@ -295,11 +295,13 @@ LUMORA_C_API bool8 PlatformPumpMessage(FPlatformState* PlatformState)
 
 LUMORA_C_API void* PlatformAllocate(uint64 AllocSize, bool8 bAligned)
 {
+    LUMORA_UNUSED_PARAM(bAligned);
     return malloc(AllocSize);
 }
 
 LUMORA_C_API void  PlatformFree(void* Block, bool8 bAligned)
 {
+    LUMORA_UNUSED_PARAM(bAligned);
     free(Block);
 }
 

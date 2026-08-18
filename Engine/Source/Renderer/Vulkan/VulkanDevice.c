@@ -256,7 +256,7 @@ bool8 SelectPhysicalDevice(FVulkanContext* VulkanContext)
         /** NOTE: Enable this if compute will be required. */
         //Requirements.bCompute = TRUE;
         Requirements.bSamplerAnisotropy = TRUE;
-        Requirements.bDiscreteGpu = TRUE;
+        Requirements.bDiscreteGpu = FALSE;
         Requirements.DeviceExtensionNames = CArrayCreate(sizeof(const char*));
          
         const char* SwapchainExtensionName = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
@@ -293,6 +293,9 @@ bool8 SelectPhysicalDevice(FVulkanContext* VulkanContext)
                 break;
             case VK_PHYSICAL_DEVICE_TYPE_CPU:
                 LUMORA_INFO("GPU type is CPU.");
+                break;
+            default:
+                LUMORA_WARN("GPU type is Unknown");
                 break;
             }
 
@@ -432,10 +435,10 @@ bool8 PhysicalDeviceMeetsRequirements(
         Properties->deviceName
     );
         
-    const bool8 bSatisfiesGraphics = (!Requirements->bGraphics || (Requirements->bGraphics && OutQueueFamilyInfo->GraphicsFamilyIndex != -1));
-    const bool8 bSatisfiesPresent  = (!Requirements->bPresent  || (Requirements->bPresent  && OutQueueFamilyInfo->PresentFamilyIndex  != -1));
-    const bool8 bSatisfiesCompute  = (!Requirements->bCompute  || (Requirements->bCompute  && OutQueueFamilyInfo->ComputeFamilyIndex  != -1));
-    const bool8 bSatisfiesTransfer = (!Requirements->bTransfer || (Requirements->bTransfer && OutQueueFamilyInfo->TransferFamilyIndex != -1));
+    const bool8 bSatisfiesGraphics = (!Requirements->bGraphics || (Requirements->bGraphics && OutQueueFamilyInfo->GraphicsFamilyIndex != (uint32)-1));
+    const bool8 bSatisfiesPresent  = (!Requirements->bPresent  || (Requirements->bPresent  && OutQueueFamilyInfo->PresentFamilyIndex  != (uint32)-1));
+    const bool8 bSatisfiesCompute  = (!Requirements->bCompute  || (Requirements->bCompute  && OutQueueFamilyInfo->ComputeFamilyIndex  != (uint32)-1));
+    const bool8 bSatisfiesTransfer = (!Requirements->bTransfer || (Requirements->bTransfer && OutQueueFamilyInfo->TransferFamilyIndex != (uint32)-1));
     if (bSatisfiesGraphics && bSatisfiesPresent && bSatisfiesCompute && bSatisfiesTransfer)
     {
         LUMORA_INFO("Device meets queue requirements.");

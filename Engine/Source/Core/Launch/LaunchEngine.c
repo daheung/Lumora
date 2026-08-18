@@ -178,8 +178,12 @@ LUMORA_C_API bool8 ApplocationLoop()
     return TRUE;
 }
 
-bool8 ApplicationOnEvent(uint16 Code, void *Sender, void *ListenerList, FCoreEventContext Context)
+bool8 ApplicationOnEvent(uint16 Code, void* Sender, void* ListenerList, FCoreEventContext Context)
 {
+    LUMORA_UNUSED_PARAM(Sender);
+    LUMORA_UNUSED_PARAM(ListenerList);
+    LUMORA_UNUSED_PARAM(Context);
+
     switch (Code)
     {
     case EVENT_CODE_APPLICATION_QUIT:
@@ -191,8 +195,11 @@ bool8 ApplicationOnEvent(uint16 Code, void *Sender, void *ListenerList, FCoreEve
     return FALSE;
 }
 
-bool8 ApplicationOnKey(uint16 Code, void *Sender, void *ListenerList, FCoreEventContext Context)
+bool8 ApplicationOnKey(uint16 Code, void* Sender, void* ListenerList, FCoreEventContext Context)
 {
+    LUMORA_UNUSED_PARAM(Sender);
+    LUMORA_UNUSED_PARAM(ListenerList);
+    
     switch (Code)
     {
     case EVENT_CODE_KEY_PRESSED:

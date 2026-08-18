@@ -74,16 +74,19 @@ LUMORA_C_API bool8 IsEqual(const char *String1, const char *String2)
 
 LUMORA_C_API char* Strcpy(char* Dest, size_t DestCount, const char* Src)
 {
+    LUMORA_UNUSED_PARAM(DestCount);
     return (char*)strcpy(Dest, Src);
 }
 
 LUMORA_C_API char* Strncpy(char* Dest, const char* Src, size_t DestCount)
 {
+    LUMORA_UNUSED_PARAM(DestCount);
     return (char*)strcpy(Dest, Src);
 }
 
 LUMORA_C_API char* Strcat(char* Dest, size_t DestCount, const char* Src)
 {
+    LUMORA_UNUSED_PARAM(DestCount);
     return (char*)strcat(Dest, Src);
 }
 

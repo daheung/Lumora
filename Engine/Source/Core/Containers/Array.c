@@ -112,6 +112,8 @@ void CArraySetFieldImpl(void* Array, uint64 Field, uint64 Value)
 /** TODO: Use OptNewCapacity Param */
 void* CArrayResizeImpl(void* Array, uint64 OptNewCapacity)
 {
+    LUMORA_UNUSED_PARAM(OptNewCapacity);
+    
     uint64 Length = CArrayLength(Array);
     uint64 Stride = CArrayStride(Array);
     void* NewArray = CArrayCreateImpl((CARRAY_RESIZE_FACTOR * CArrayCapacity(Array)), Stride);
