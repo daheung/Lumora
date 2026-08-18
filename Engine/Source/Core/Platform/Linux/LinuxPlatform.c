@@ -16,6 +16,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xlib-xcb.h>
 #include <sys/time.h>
+#include <sys/sysinfo.h>    // Processor info
 
 #if _POSIX_C_SOURCE >= 199309L
     /** nanosleep */
@@ -359,6 +360,15 @@ LUMORA_C_API void PlatformSleep(uint64 MilliSecond)
 
     // usleep((MilliSecond % 1000) * 1000);
 #endif
+}
+
+LUMORA_C_API int32 PlatformGetProcessorCount(void)
+{
+    /** Load processor info. */
+    int32 ProcessorCount = get_nprocs_conf();
+    uint32 ProcessorsAvailable = get_nprocs();
+    LUMORA_INFO("%i processor cores detected, %i cores available.", ProcessorCount, ProcessorsAvailable);
+    return ProcessorsAvailable;
 }
 
 void PlatformGetRequiredExtensionNames(const char*** CArrayNames)

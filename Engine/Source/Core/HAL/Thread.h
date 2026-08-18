@@ -47,4 +47,4 @@ LUMORA_C_API bool8 HThreadIsActive(FThread* Thread);
  */
 LUMORA_C_API void HThreadSleep(FThread* Thread, uint64 MilliSecond);
 
-LUMORA_C_API void HThreadGetId(void);
+LUMORA_C_API uint64 HThreadGetId(void);

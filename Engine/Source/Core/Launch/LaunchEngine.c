@@ -66,6 +66,24 @@ LUMORA_C_API bool8 ApplicationCreate(struct FGame* GameInstance)
         return FALSE;
     }
 
+    /** This is really a core count. Subtract 1 to account for the main thread already being in use. */
+    int32 ThreadCount = PlatformGetProcessorCount() - 1;
+    if (ThreadCount < 1)
+    {
+        LUMORA_FATAL("Error: Platform reported processor count (minus one for main thread) as %i. Need at last one additional thread for the job system.", ThreadCount);
+        return FALSE;
+    }
+
+    LUMORA_TRACE("Available threads: %i", ThreadCount);
+
+    /** Cap the thread count. */
+    const int32 MaxThreadCount = 16;
+    if (ThreadCount > MaxThreadCount)
+    {
+        LUMORA_TRACE("Available threads on the system is %i, but will be capped at %i.", ThreadCount, MaxThreadCount);
+        ThreadCount = MaxThreadCount;
+    }
+    
     /** Initialize the Game */
     const bool8 bGameInitSucceed = GApplicationState.GameInstance->InitializeFunc(GApplicationState.GameInstance);
     if (!bGameInitSucceed)
