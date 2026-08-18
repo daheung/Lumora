@@ -77,12 +77,12 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
 
     message(STATUS "Lumora compiler: Clang")
 
-    target_compile_options(Engine
-        PRIVATE
-            -Wall
-            -Wextra
-            -Wvarargs
-            -Werror
+    target_compile_options(Engine PRIVATE
+        -Wall
+        -Wextra
+        -Wvarargs
+        $<$<CONFIG:Release>:-g>
+        $<$<CONFIG:Release>:-fno-omit-frame-pointer>
     )
 
 elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU")
@@ -125,10 +125,15 @@ if(WIN32)
 
 elseif(UNIX)
 
-    target_link_libraries(Engine
-        PRIVATE
+    find_package(X11 REQUIRED)
+    target_link_libraries(Engine PRIVATE
             dl
             pthread
+    )
+    target_link_libraries(Engine PRIVATE
+            X11::X11
+            X11::xcb
+            X11::X11_xcb
     )
 
 endif()
