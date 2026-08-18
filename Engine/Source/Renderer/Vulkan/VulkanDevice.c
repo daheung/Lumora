@@ -4,7 +4,7 @@
 #include "Core/HAL/LumoraMemory.h"
 #include "Core/Containers/Array.h"
 
-typedef struct FVulkanPhysicalDeviceRequireents
+typedef struct FVulkanPhysicalDeviceRequirements
 {
     const char** DeviceExtensionNames;
     bool8 bGraphics;
@@ -13,7 +13,7 @@ typedef struct FVulkanPhysicalDeviceRequireents
     bool8 bTransfer;
     bool8 bSamplerAnisotropy;
     bool8 bDiscreteGpu;
-} FVulkanPhysicalDeviceRequireents;
+} FVulkanPhysicalDeviceRequirements;
 
 typedef struct FVulkanPhysicalDeviceQueueFamilyInfo
 {
@@ -29,7 +29,7 @@ bool8 PhysicalDeviceMeetsRequirements(
     VkSurfaceKHR Surface,
     const VkPhysicalDeviceProperties* Properties,
     const VkPhysicalDeviceFeatures* Features,
-    const FVulkanPhysicalDeviceRequireents* Requirements,
+    const FVulkanPhysicalDeviceRequirements* Requirements,
     FVulkanPhysicalDeviceQueueFamilyInfo* OutQueueFamilyInfo,
     FVulkanSwapchainSupportInfo* OutSwapchainSupport
 );
@@ -42,7 +42,7 @@ bool8 VulkanCreateDevice(FVulkanContext* VulkanContext)
         return FALSE;
     }
 
-    LUMORA_INFO("Cretaing logical device...");
+    LUMORA_INFO("Creating logical device...");
 
     /** NOTE: Do not create additional queues for shared indices. */
     bool8 bPresentSharesGraphicsQueue  = VulkanContext->Device.GraphicsQueueIndex == VulkanContext->Device.PresentQueueIndex;
@@ -90,7 +90,7 @@ bool8 VulkanCreateDevice(FVulkanContext* VulkanContext)
     /** Request device features. 
      *  TODO: Should be config driven. */
     VkPhysicalDeviceFeatures DeviceFeatures = { 0 };
-    DeviceFeatures.samplerAnisotropy = VK_TRUE;     // Request anistrophy
+    DeviceFeatures.samplerAnisotropy = VK_TRUE;     // Request anisotropy
     
     VkDeviceCreateInfo DeviceCreateInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
     DeviceCreateInfo.queueCreateInfoCount = IndexCount;
@@ -138,7 +138,7 @@ void VulkanReleaseDevice(FVulkanContext* VulkanContext)
     }
 
     /** Physical devices are not destroyed. */
-    LUMORA_INFO("Releaseing physical device resources...");
+    LUMORA_INFO("Releasing physical device resources...");
     VulkanContext->Device.PhysicalDevice = NULL;
 
     if (VulkanContext->Device.SwapchainSupport.Formats)
@@ -198,13 +198,40 @@ void VulkanDeviceQuerySwapchainSupport(VkPhysicalDevice PhysicalDevice, VkSurfac
     }
 }
 
+bool8 VulkanDeviceDetectDepthFormat(FVulkanDevice* VulkanDevice)
+{
+    /** Format candidates */
+    const uint32 CandidateCount = 3;
+    VkFormat Candidates[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT };
+
+    uint32 Flags = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    for (uint32 I = 0; I < CandidateCount; ++I)
+    {
+        VkFormatProperties Properties = { 0 };
+        vkGetPhysicalDeviceFormatProperties(VulkanDevice->PhysicalDevice, Candidates[I], &Properties);
+
+        if ((Properties.linearTilingFeatures & Flags) == Flags)
+        {
+            VulkanDevice->DepthFormat = Candidates[I];
+            return TRUE;
+        }
+        else if ((Properties.linearTilingFeatures & Flags) & Flags)
+        {
+            VulkanDevice->DepthFormat = Candidates[I];
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
 bool8 SelectPhysicalDevice(FVulkanContext* VulkanContext)
 {
     uint32 PhysicalDeviceCount = 0;
     VK_CHECK(vkEnumeratePhysicalDevices(VulkanContext->Instance, &PhysicalDeviceCount, NULL));
     if (PhysicalDeviceCount == 0)
     {
-        LUMORA_FATAL("No devices which suppoert Vulkan were found.");
+        LUMORA_FATAL("No devices which support Vulkan were found.");
         return FALSE;
     }
 
@@ -222,7 +249,7 @@ bool8 SelectPhysicalDevice(FVulkanContext* VulkanContext)
         vkGetPhysicalDeviceMemoryProperties(PhysicalDevices[I], &MemoryProperties);
 
         /** TODO: These requirements should probably be driven by engine configuration. */
-        FVulkanPhysicalDeviceRequireents Requirements = { 0 };
+        FVulkanPhysicalDeviceRequirements Requirements = { 0 };
         Requirements.bGraphics = TRUE;
         Requirements.bPresent = TRUE;
         Requirements.bTransfer = TRUE;
@@ -256,7 +283,7 @@ bool8 SelectPhysicalDevice(FVulkanContext* VulkanContext)
                 LUMORA_INFO("GPU type is Unknown.");
                 break;
             case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
-                LUMORA_INFO("GPU type is Intergrated.");
+                LUMORA_INFO("GPU type is Integrated.");
                 break;
             case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
                 LUMORA_INFO("GPU type is Discrete.");
@@ -326,12 +353,12 @@ bool8 PhysicalDeviceMeetsRequirements(
     VkSurfaceKHR Surface, 
     const VkPhysicalDeviceProperties* Properties, 
     const VkPhysicalDeviceFeatures* Features, 
-    const FVulkanPhysicalDeviceRequireents* Requirements, 
+    const FVulkanPhysicalDeviceRequirements* Requirements, 
     FVulkanPhysicalDeviceQueueFamilyInfo* OutQueueFamilyInfo, 
     FVulkanSwapchainSupportInfo* OutSwapchainSupport
 ) {
 
-    /** Evaluate device properties to determine if it meets the needs of out appliction. */
+    /** Evaluate device properties to determine if it meets the needs of out application. */
     OutQueueFamilyInfo->GraphicsFamilyIndex = (uint32)-1;
     OutQueueFamilyInfo->PresentFamilyIndex  = (uint32)-1;
     OutQueueFamilyInfo->ComputeFamilyIndex  = (uint32)-1;
@@ -376,8 +403,8 @@ bool8 PhysicalDeviceMeetsRequirements(
         if (QueueFamilies[Index].queueFlags & VK_QUEUE_TRANSFER_BIT)
         {
             /** 
-             * Take the intdex if it is the current lowset. This increases the 
-             * likeihood that it is a dedicated transfer queue.
+             * Take the index if it is the current lowset. This increases the 
+             * likelihood that it is a dedicated transfer queue.
              */
             if (CurrentTransferScore <= MinTransferScore)
             {
@@ -476,7 +503,7 @@ bool8 PhysicalDeviceMeetsRequirements(
             }
         }
 
-        /** Samplar anisotropy */
+        /** sampler anisotropy */
         if (Requirements->bSamplerAnisotropy && !Features->samplerAnisotropy)
         {
             LUMORA_INFO("Device does not support samplerAnisotropy, skipping.");

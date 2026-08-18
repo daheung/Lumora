@@ -15,7 +15,7 @@ struct FPlatformState;
 static FVulkanContext GVulkanContext;
 
 VKAPI_ATTR VkBool32 VKAPI_CALL VkDebugCallback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT MessageServirty,
+    VkDebugUtilsMessageSeverityFlagBitsEXT MessageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT MessageTypes,
     const VkDebugUtilsMessengerCallbackDataEXT* CallbackData,
     void* UserData
@@ -120,7 +120,7 @@ bool8 VulkanInitializeRendererBackend(FRendererBackend *Backend, const char *App
     LUMORA_DEBUG("Creating Vulkan debugger...");
     uint32 LogSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
                          VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;   //  |
-                                                                            //      VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | 
+                                                                            //      VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |          
                                                                             //      VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
 
     VkDebugUtilsMessengerCreateInfoEXT DebugCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
@@ -133,7 +133,7 @@ bool8 VulkanInitializeRendererBackend(FRendererBackend *Backend, const char *App
 
     PFN_vkCreateDebugUtilsMessengerEXT MessengerFunc = 
         (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(GVulkanContext.Instance, "vkCreateDebugUtilsMessengerEXT");
-    LUMORA_ASSERT_MSG(MessengerFunc, "Filaed to create debug messenger.");
+    LUMORA_ASSERT_MSG(MessengerFunc, "Failed to create debug messenger.");
     VK_CHECK(MessengerFunc(GVulkanContext.Instance, &DebugCreateInfo, GVulkanContext.Allocator, &GVulkanContext.DebugMessenger));
     LUMORA_DEBUG("Vulkan debugger created.");
 #endif
@@ -142,13 +142,13 @@ bool8 VulkanInitializeRendererBackend(FRendererBackend *Backend, const char *App
     LUMORA_DEBUG("Createing Vulkan surface...");
     if (!PlatformCreateVulkanSurface(PlatformState, &GVulkanContext))
     {
-        LUMORA_ERROR("Failed toc reate platform surface.");
+        LUMORA_ERROR("Failed to create platform surface.");
         return FALSE;
     }
 
     LUMORA_DEBUG("Vulkan surface created.");
 
-    /** Device createion */
+    /** Device creation */
     if (!VulkanCreateDevice(&GVulkanContext))
     {
         LUMORA_ERROR("Failed to create device.");
@@ -197,12 +197,12 @@ bool8 VulkanRendererBackendEndFrame(FRendererBackend *Backend, float32 DeltaTime
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL VkDebugCallback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT MessageServirty, 
+    VkDebugUtilsMessageSeverityFlagBitsEXT MessageSeverity, 
     VkDebugUtilsMessageTypeFlagsEXT MessageTypes, 
     const VkDebugUtilsMessengerCallbackDataEXT* CallbackData,
     void* UserData
 ) {
-    switch (MessageServirty)
+    switch (MessageSeverity)
     {
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
         LUMORA_ERROR(CallbackData->pMessage);
