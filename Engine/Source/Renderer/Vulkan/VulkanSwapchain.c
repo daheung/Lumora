@@ -4,6 +4,7 @@
 #include "Core/Misc/Math.h"
 #include "Core/HAL/LumoraMemory.h"
 #include "Vulkan/VulkanDevice.h"
+#include "Vulkan/VulkanImage.h"
 
 static void VulkanCreateSwapchainImpl(FVulkanContext* VulkanContext, uint32 Width, uint32 Height, FVulkanSwapchain* Swapchain);
 static void VulkanReleaseSwapchainImpl(FVulkanContext* VulkanContext, FVulkanSwapchain* Swapchain);
@@ -19,7 +20,7 @@ void VulkanRecreateSwapchain(FVulkanContext* VulkanContext, uint32 Width, uint32
 	VulkanCreateSwapchainImpl(VulkanContext, Width, Height, Swapchain);
 }
 
-void VulkanReleaseSwapchain(FVulkanContext* VulkanContext, uint32 Width, uint32 Height, FVulkanSwapchain* Swapchain)
+void VulkanReleaseSwapchain(FVulkanContext* VulkanContext, FVulkanSwapchain* Swapchain)
 {
 	VulkanReleaseSwapchainImpl(VulkanContext, Swapchain);
 }
@@ -103,7 +104,7 @@ void VulkanCreateSwapchainImpl(FVulkanContext* VulkanContext, uint32 Width, uint
 	}
 
 	/** Requery swapchain support. */
-	VulkanDeviceQuerySwapchainSupport(VulkanContext->Device.Device, VulkanContext->Surface, &VulkanContext->Device.SwapchainSupport);
+	VulkanDeviceQuerySwapchainSupport(VulkanContext->Device.PhysicalDevice, VulkanContext->Surface, &VulkanContext->Device.SwapchainSupport);
 
 	/** Swapchain extent */
 	const bool8 bIsValidWidth  = VulkanContext->Device.SwapchainSupport.Capabilities.currentExtent.width  != UINT32_MAX;
@@ -199,9 +200,36 @@ void VulkanCreateSwapchainImpl(FVulkanContext* VulkanContext, uint32 Width, uint
 		LUMORA_FATAL("Failed to find a support depth format.");
 	}
 
+	/** Create depth image and its view. */
+	VulkanCreateImage(
+		VulkanContext,
+		VK_IMAGE_TYPE_2D,
+		SwapchainExtent.width,
+		SwapchainExtent.height,
+		VulkanContext->Device.DepthFormat,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		TRUE,
+		VK_IMAGE_ASPECT_DEPTH_BIT,
+		&Swapchain->DepthAttachment
+	);
 
+	LUMORA_INFO("Swapchain created successfully.");
 }
 
 void VulkanReleaseSwapchainImpl(FVulkanContext* VulkanContext, FVulkanSwapchain* Swapchain)
 {
+	VulkanReleaseImage(VulkanContext, &Swapchain->DepthAttachment);
+
+	/**
+	 * Only destroy the views, not the images, since those are owned by the swapchain and are thus
+	 * destroyed when it is
+	 */
+	for (uint32 I = 0; I < Swapchain->ImageCount; ++I)
+	{
+		vkDestroyImageView(VulkanContext->Device.Device, Swapchain->ImageViews[I], VulkanContext->Allocator);
+	}
+
+	vkDestroySwapchainKHR(VulkanContext->Device.Device, Swapchain->Handle, VulkanContext->Allocator);
 }

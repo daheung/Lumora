@@ -7,7 +7,7 @@ void VulkanCreateSwapchain(FVulkanContext* VulkanContext, uint32 Width, uint32 H
 
 void VulkanRecreateSwapchain(FVulkanContext* VulkanContext, uint32 Width, uint32 Height, FVulkanSwapchain* Swapchain);
 
-void VulkanReleaseSwapchain(FVulkanContext* VulkanContext, uint32 Width, uint32 Height, FVulkanSwapchain* Swapchain);
+void VulkanReleaseSwapchain(FVulkanContext* VulkanContext, FVulkanSwapchain* Swapchain);
 
 bool8 VulkanSwapchainAcquireNextImageIndex(
 	FVulkanContext* VulkanContext, 

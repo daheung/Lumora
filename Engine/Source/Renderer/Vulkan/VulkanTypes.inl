@@ -55,6 +55,7 @@ typedef struct FVulkanSwapchain
     uint32 ImageCount;
     VkImage* Images;
     VkImageView* ImageViews;
+    FVulkanImage DepthAttachment;
 } FVulkanSwapchain;
 
 typedef struct FVulkanContext
@@ -77,4 +78,6 @@ typedef struct FVulkanContext
     uint32 CurrentFrame;
 
     bool8 bRecreatingSwapchain;
+
+    int32(*FindMemoryIndexFunc)(uint32 TypeFilter, uint32 PropertyFlags);
 } FVulkanContext;

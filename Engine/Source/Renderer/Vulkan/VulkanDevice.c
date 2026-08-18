@@ -215,7 +215,7 @@ bool8 VulkanDeviceDetectDepthFormat(FVulkanDevice* VulkanDevice)
             VulkanDevice->DepthFormat = Candidates[I];
             return TRUE;
         }
-        else if ((Properties.linearTilingFeatures & Flags) & Flags)
+        else if ((Properties.optimalTilingFeatures & Flags) & Flags)
         {
             VulkanDevice->DepthFormat = Candidates[I];
             return TRUE;

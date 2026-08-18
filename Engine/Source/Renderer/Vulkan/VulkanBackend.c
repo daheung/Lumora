@@ -8,6 +8,7 @@
 #include "Core/HAL/LumoraMemory.h"
 #include "Vulkan/VulkanPlatform.h"
 #include "Vulkan/VulkanDevice.h"
+#include "Vulkan/VulkanSwapchain.h"
 
 struct FPlatformState;
 
@@ -21,8 +22,13 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VkDebugCallback(
     void* UserData
 );
 
+int32 FindMemoryIndex(uint32 TypeFilter, uint32 PropertyFlags);
+
 bool8 VulkanInitializeRendererBackend(FRendererBackend *Backend, const char *ApplicationName, struct FPlatformState *PlatformState)
 {
+    /** Function pointers */
+    GVulkanContext.FindMemoryIndexFunc = FindMemoryIndex;
+
     /** TODO: Custom Allocator. */
     GVulkanContext.Allocator = NULL;
 
@@ -155,6 +161,9 @@ bool8 VulkanInitializeRendererBackend(FRendererBackend *Backend, const char *App
         return FALSE;
     }
 
+    /** Swapchain creation. */
+    VulkanCreateSwapchain(&GVulkanContext, GVulkanContext.FrameBufferWidth, GVulkanContext.FrameBufferWidth, &GVulkanContext.Swapchain);
+
     LUMORA_DEBUG("Vulkan surface created.");
 
     CArrayRelease(RequiredExtensions);
@@ -170,6 +179,21 @@ bool8 VulkanInitializeRendererBackend(FRendererBackend *Backend, const char *App
 
 void VulkanReleaseRendererBackend(FRendererBackend *Backend)
 {
+    /** Destroy in the opposite order of creation. */
+
+    /** Swapchain */
+    VulkanReleaseSwapchain(&GVulkanContext, &GVulkanContext.Swapchain);
+
+    LUMORA_DEBUG("Destroying Vulkan device...");
+    VulkanReleaseDevice(&GVulkanContext);
+
+    LUMORA_DEBUG("Destroying Vulkan surface...");
+    if (GVulkanContext.Surface)
+    {
+        vkDestroySurfaceKHR(GVulkanContext.Instance, GVulkanContext.Surface, GVulkanContext.Allocator);
+        GVulkanContext.Surface = NULL;
+    }
+
     LUMORA_DEBUG("Release Vulkan debugger...");
     if (GVulkanContext.DebugMessenger)
     {
@@ -219,4 +243,22 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VkDebugCallback(
     }
 
     return VK_FALSE;
+}
+
+int32 FindMemoryIndex(uint32 TypeFilter, uint32 PropertyFlags)
+{
+    VkPhysicalDeviceMemoryProperties MemoryProperties = { 0 };
+    vkGetPhysicalDeviceMemoryProperties(GVulkanContext.Device.PhysicalDevice, &MemoryProperties);
+    
+    for (uint32 I = 0; I < MemoryProperties.memoryTypeCount; ++I)
+    {
+        /** Check each memory type to see if its bit is set to 1. */
+        if (TypeFilter & (1 << I) && (MemoryProperties.memoryTypes[I].propertyFlags & PropertyFlags) == PropertyFlags)
+        {
+            return I;
+        }
+    }
+
+    LUMORA_WARN("Unable to find suitable memory type.");
+    return -1;
 }
