@@ -28,3 +28,11 @@ float64 PlatformGetAbsoluteTime(void);
  * Therefore it is not exported.
  */
 void PlatformSleep(uint64 MilliSecond);
+
+
+/**
+ * @brief Obtains the number of processor cores.
+ * 
+ * @returns The number of processor cores.
+ */
+LUMORA_C_API int32 PlatformGetProcessorCount(void);
