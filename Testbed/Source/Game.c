@@ -21,3 +21,8 @@ bool8 GameRender(struct FGame *GameInstance, float32 DeltaTime)
 void GameOnResize(struct FGame *GameInstance, uint32 Width, uint32 Height)
 {
 }
+
+bool8 GameRelease(struct FGame* GameInstance)
+{
+    return TRUE;
+}

@@ -181,6 +181,12 @@ LUMORA_C_API bool8 ApplocationLoop()
 
     GApplicationState.bIsRunning = FALSE;
     
+    /** Release the game. */
+    if (GApplicationState.GameInstance->ReleaseFunc)
+    {
+        GApplicationState.GameInstance->ReleaseFunc(GApplicationState.GameInstance);
+    }
+
     /** Unregister events. */
     UnregisterEvent(EVENT_CODE_APPLICATION_QUIT, 0, ApplicationOnEvent);
     UnregisterEvent(EVENT_CODE_KEY_PRESSED     , 0, ApplicationOnKey);
