@@ -120,6 +120,7 @@ if(WIN32)
 
     target_link_libraries(Engine
         PRIVATE
+            ws2_32
             user32
     )
 
