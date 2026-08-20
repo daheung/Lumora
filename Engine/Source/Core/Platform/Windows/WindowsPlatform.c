@@ -9,7 +9,7 @@
 #include <Windows.h>
 #include <windowsx.h> // param input extraction
 
-/** For surface createion */
+/** For surface creation */
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_win32.h>
 #include <Vulkan/VulkanTypes.inl>
@@ -223,16 +223,24 @@ void PlatformSleep(uint64 MilliSecond)
     Sleep(MilliSecond);
 }
 
+LUMORA_C_API int32 PlatformGetProcessorCount(void)
+{
+    SYSTEM_INFO SystemInfo = { 0 };
+    GetSystemInfo(&SystemInfo);
+    LUMORA_INFO("%i processor cores detected.", SystemInfo.dwNumberOfProcessors);
+    return SystemInfo.dwNumberOfProcessors;
+}
+
 void PlatformGetRequiredExtensionNames(const char*** CArrayNames)
 {
     const char* Win32Surface = "VK_KHR_win32_surface";
     CArrayPush(*CArrayNames, &Win32Surface);
 }
 
-/** Surface createion for Vulkan. */
+/** Surface creation for Vulkan. */
 bool8 PlatformCreateVulkanSurface(struct FPlatformState* PlatformState, struct FVulkanContext* VulkanContext)
 {
-    /** Siply cold-cast to the known type. */
+    /** simply cold-cast to the known type. */
     FInternalState* InternalState = (FInternalState*)PlatformState->InternalState;
     
     VkWin32SurfaceCreateInfoKHR CreateInfo = { VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
@@ -242,7 +250,7 @@ bool8 PlatformCreateVulkanSurface(struct FPlatformState* PlatformState, struct F
     VkResult Result = vkCreateWin32SurfaceKHR(VulkanContext->Instance, &CreateInfo, VulkanContext->Allocator, &InternalState->Surface);
     if (Result != VK_SUCCESS)
     {
-        LUMORA_FATAL("Vulkan surface createion failed.");
+        LUMORA_FATAL("Vulkan surface creation failed.");
         return FALSE;
     }
 
