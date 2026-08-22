@@ -23,4 +23,7 @@ typedef struct
 } FApplicationConfig;
 
 LUMORA_C_API bool8 ApplicationCreate(struct FGame* GameInstance);
+
 LUMORA_C_API bool8 ApplocationLoop();
+
+void ApplicationGetFrameBufferSize(uint32* Width, uint32* Height);

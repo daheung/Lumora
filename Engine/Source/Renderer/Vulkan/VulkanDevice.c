@@ -119,6 +119,14 @@ bool8 VulkanCreateDevice(FVulkanContext* VulkanContext)
     CArrayRelease(QueueCreateInfos);
     CArrayRelease(Indices);
 
+    /** Create command pool for graphics queue. */
+    VkCommandPoolCreateInfo PoolCreateInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+    PoolCreateInfo.queueFamilyIndex = VulkanContext->Device.GraphicsQueueIndex;
+    PoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    VK_CHECK(vkCreateCommandPool(VulkanContext->Device.Device, &PoolCreateInfo, VulkanContext->Allocator, &VulkanContext->Device.GraphicsCommandPool));
+    
+    LUMORA_INFO("Graphics command pool created.");
+
     return TRUE;
 }
 
@@ -128,6 +136,8 @@ void VulkanReleaseDevice(FVulkanContext* VulkanContext)
     VulkanContext->Device.GraphicsQueue = NULL;
     VulkanContext->Device.PresentQueue  = NULL;
     VulkanContext->Device.TransferQueue = NULL;
+
+    vkDestroyCommandPool(VulkanContext->Device.Device, VulkanContext->Device.GraphicsCommandPool, VulkanContext->Allocator);
 
     /** Destroy logical device. */
     LUMORA_INFO("Destroying logical device...");

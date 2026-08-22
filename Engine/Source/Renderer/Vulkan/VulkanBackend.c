@@ -6,14 +6,22 @@
 #include "Core/Containers/Array.h"
 #include "Core/Platform/Platform.h"
 #include "Core/HAL/LumoraMemory.h"
+#include "Core/Launch/LaunchEngine.h"
+
 #include "Vulkan/VulkanPlatform.h"
 #include "Vulkan/VulkanDevice.h"
 #include "Vulkan/VulkanSwapchain.h"
+#include "Vulkan/VulkanRenderpass.h"
+#include "Vulkan/VulkanCommandBuffer.h"
+#include "Vulkan/VulkanFrameBuffer.h"
+#include "Vulkan/VulkanFence.h"
 
 struct FPlatformState;
 
 /** static Vulkan context. */
 static FVulkanContext GVulkanContext;
+static uint32 GCachedFrameBufferWidth = 0;
+static uint32 GCachedFrameBufferHeight = 0;
 
 VKAPI_ATTR VkBool32 VKAPI_CALL VkDebugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT MessageSeverity,
@@ -24,13 +32,23 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VkDebugCallback(
 
 int32 FindMemoryIndex(uint32 TypeFilter, uint32 PropertyFlags);
 
-bool8 VulkanInitializeRendererBackend(FRendererBackend *Backend, const char *ApplicationName, struct FPlatformState *PlatformState)
+void CreateCommandBuffer(FRendererBackend* Backend);
+
+void RegenerateFrameBuffers(FRendererBackend* Backend, FVulkanSwapchain* Swapchain, FVulkanRenderPass* RenderPass);
+
+bool8 VulkanInitializeRendererBackend(FRendererBackend* Backend, const char* ApplicationName, struct FPlatformState* PlatformState)
 {
     /** Function pointers */
     GVulkanContext.FindMemoryIndexFunc = FindMemoryIndex;
 
     /** TODO: Custom Allocator. */
     GVulkanContext.Allocator = NULL;
+
+    ApplicationGetFrameBufferSize(&GCachedFrameBufferWidth, &GCachedFrameBufferHeight);
+    GVulkanContext.FrameBufferWidth  = (GCachedFrameBufferWidth  != 0) ? GCachedFrameBufferWidth  : 1280;
+    GVulkanContext.FrameBufferHeight = (GCachedFrameBufferHeight != 0) ? GCachedFrameBufferHeight : 720;
+    GCachedFrameBufferWidth  = 0;
+    GCachedFrameBufferHeight = 0;
 
     VkApplicationInfo ApplicationInfo = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
     ApplicationInfo.apiVersion = VK_API_VERSION_1_4;
@@ -164,7 +182,45 @@ bool8 VulkanInitializeRendererBackend(FRendererBackend *Backend, const char *App
     /** Swapchain creation. */
     VulkanCreateSwapchain(&GVulkanContext, GVulkanContext.FrameBufferWidth, GVulkanContext.FrameBufferWidth, &GVulkanContext.Swapchain);
 
-    LUMORA_DEBUG("Vulkan surface created.");
+    /** RenderPass creation. */
+    VulkanCreateRenderPass(&GVulkanContext, &GVulkanContext.MainRenderPass, 0, 0, GVulkanContext.FrameBufferWidth, GVulkanContext.FrameBufferWidth, 0.0f, 0.0f, 0.2f, 1.0f, 1.0f, 0);
+
+    /** Swapchain framebuffers */
+    GVulkanContext.Swapchain.FrameBuffers = CArrayCreateWithCapacity(sizeof(FVulkanFrameBuffer), GVulkanContext.Swapchain.ImageCount);
+    RegenerateFrameBuffers(Backend, &GVulkanContext.Swapchain, &GVulkanContext.MainRenderPass);
+
+    /** Create command buffers. */
+    CreateCommandBuffer(Backend);
+
+    /** Create sync objects. */
+    GVulkanContext.ImageAvailableSemaphores = CArrayCreateWithCapacity(sizeof(VkSemaphore), GVulkanContext.Swapchain.MaxFramesInFlight);
+    GVulkanContext.QueueCompleteSemaphores  = CArrayCreateWithCapacity(sizeof(VkSemaphore), GVulkanContext.Swapchain.MaxFramesInFlight);
+    GVulkanContext.InFlightFences = CArrayCreateWithCapacity(sizeof(FVulkanFence), GVulkanContext.Swapchain.MaxFramesInFlight);
+
+    for (uint8 Index = 0; Index < GVulkanContext.Swapchain.MaxFramesInFlight; ++Index)
+    {
+        VkSemaphoreCreateInfo SemaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+        vkCreateSemaphore(GVulkanContext.Device.Device, &SemaphoreCreateInfo, GVulkanContext.Allocator, &GVulkanContext.ImageAvailableSemaphores[Index]);
+        vkCreateSemaphore(GVulkanContext.Device.Device, &SemaphoreCreateInfo, GVulkanContext.Allocator, &GVulkanContext.QueueCompleteSemaphores[Index]);
+
+        /**
+         * Create the fence in a signal state, indicating that the first frame has already been "rendered".
+         * This will prevent the application from waiting indefinitely for the first frame to render since it
+         * cannot be rendered until a frame is "rendered" before it.
+         */
+        VulkanCreateFence(&GVulkanContext, TRUE, &GVulkanContext.InFlightFences[Index]);
+    }
+
+    /** 
+     * In flight fences should not yet exist at this point, so clear the list. These are stored in pointers
+     * because the initial state should be 0, and will be 0 when not in use. Actual fences are not owned
+     * by this list.
+     */
+    GVulkanContext.ImagesInFlight = CArrayCreateWithCapacity(sizeof(FVulkanFence), GVulkanContext.Swapchain.ImageCount);
+    for (uint32 Index = 0; Index < GVulkanContext.Swapchain.ImageCount; ++Index)
+    {
+        GVulkanContext.ImagesInFlight[Index] = NULL;
+    }
 
     CArrayRelease(RequiredExtensions);
 
@@ -177,9 +233,55 @@ bool8 VulkanInitializeRendererBackend(FRendererBackend *Backend, const char *App
     return TRUE;
 }
 
-void VulkanReleaseRendererBackend(FRendererBackend *Backend)
+void VulkanReleaseRendererBackend(FRendererBackend* Backend)
 {
+    vkDeviceWaitIdle(GVulkanContext.Device.Device);
+
     /** Destroy in the opposite order of creation. */
+
+    /** Sync objects */
+    for (uint8 Index = 0; Index < GVulkanContext.Swapchain.MaxFramesInFlight; ++Index)
+    {
+        if (GVulkanContext.ImageAvailableSemaphores[Index])
+        {
+            vkDestroySemaphore(GVulkanContext.Device.Device, GVulkanContext.ImageAvailableSemaphores[Index], GVulkanContext.Allocator);
+        }
+        if (GVulkanContext.QueueCompleteSemaphores[Index])
+        {
+            vkDestroySemaphore(GVulkanContext.Device.Device, GVulkanContext.QueueCompleteSemaphores[Index], GVulkanContext.Allocator);
+        }
+        VulkanReleaseFence(&GVulkanContext, &GVulkanContext.InFlightFences[Index]);
+    }
+    
+    CArrayRelease(GVulkanContext.ImageAvailableSemaphores);
+    CArrayRelease(GVulkanContext.QueueCompleteSemaphores);
+    CArrayRelease(GVulkanContext.InFlightFences);
+
+    GVulkanContext.ImageAvailableSemaphores = NULL;
+    GVulkanContext.QueueCompleteSemaphores = NULL;
+    GVulkanContext.InFlightFences = NULL;
+
+    /** Command buffers */
+    for (uint32 Index = 0; Index < GVulkanContext.Swapchain.ImageCount; ++Index)
+    {
+        if (GVulkanContext.GraphicsCommandBuffers[Index].Handle)
+        {
+            VulkanReleaseCommandBuffer(&GVulkanContext, GVulkanContext.Device.GraphicsCommandPool, &GVulkanContext.GraphicsCommandBuffers[Index]);
+            GVulkanContext.GraphicsCommandBuffers[Index].Handle = NULL;
+            GVulkanContext.GraphicsCommandBuffers[Index].State = COMMAND_BUFFER_STATE_NOT_ALLOCATED;
+        }
+    }
+    CArrayRelease(GVulkanContext.GraphicsCommandBuffers);
+    GVulkanContext.GraphicsCommandBuffers = NULL;
+
+    /** Framebuffers */
+    for (uint32 Index = 0; Index < GVulkanContext.Swapchain.ImageCount; ++Index)
+    {
+        VulkanReleaseFrameBuffer(&GVulkanContext, &GVulkanContext.Swapchain.FrameBuffers[Index]);
+    }
+
+    /** RenderPass*/
+    VulkanReleaseRenderPass(&GVulkanContext, &GVulkanContext.MainRenderPass);
 
     /** Swapchain */
     VulkanReleaseSwapchain(&GVulkanContext, &GVulkanContext.Swapchain);
@@ -206,16 +308,16 @@ void VulkanReleaseRendererBackend(FRendererBackend *Backend)
     vkDestroyInstance(GVulkanContext.Instance, GVulkanContext.Allocator);
 }
 
-void VulkanRendererOnResized(FRendererBackend *Backend, uint16 Width, uint16 Height)
+void VulkanRendererOnResized(FRendererBackend* Backend, uint16 Width, uint16 Height)
 {
 }
 
-bool8 VulkanRendererBackendBeginFrame(FRendererBackend *Backend, float32 DeltaTime)
+bool8 VulkanRendererBackendBeginFrame(FRendererBackend* Backend, float32 DeltaTime)
 {
     return TRUE;
 }
 
-bool8 VulkanRendererBackendEndFrame(FRendererBackend *Backend, float32 DeltaTime)
+bool8 VulkanRendererBackendEndFrame(FRendererBackend* Backend, float32 DeltaTime)
 {
     return TRUE;
 }
@@ -261,4 +363,52 @@ int32 FindMemoryIndex(uint32 TypeFilter, uint32 PropertyFlags)
 
     LUMORA_WARN("Unable to find suitable memory type.");
     return -1;
+}
+
+void CreateCommandBuffer(FRendererBackend* Backend)
+{
+    LUMORA_UNUSED_PARAM(Backend);
+
+    if (!GVulkanContext.GraphicsCommandBuffers)
+    {
+        GVulkanContext.GraphicsCommandBuffers = CArrayCreateWithCapacity(sizeof(FVulkanCommandBuffer), GVulkanContext.Swapchain.ImageCount);
+        for (uint32 Index = 0; Index < GVulkanContext.Swapchain.ImageCount; ++Index)
+        {
+            HZeroMemory(&GVulkanContext.GraphicsCommandBuffers[Index], sizeof(FVulkanCommandBuffer));
+        }
+    }
+
+    for (uint32 Index = 0; Index < GVulkanContext.Swapchain.ImageCount; ++Index)
+    {
+        if (GVulkanContext.GraphicsCommandBuffers[Index].Handle)
+        {
+            VulkanReleaseCommandBuffer(&GVulkanContext, GVulkanContext.Device.GraphicsCommandPool, &GVulkanContext.GraphicsCommandBuffers[Index]);
+        }
+
+        HZeroMemory(&GVulkanContext.GraphicsCommandBuffers[Index], sizeof(FVulkanCommandBuffer));
+        VulkanAllocateCommandBuffer(&GVulkanContext, GVulkanContext.Device.GraphicsCommandPool, TRUE, &GVulkanContext.GraphicsCommandBuffers[Index]);
+    }
+
+    LUMORA_INFO("Vulkan command buffer created.");
+}
+
+void RegenerateFrameBuffers(FRendererBackend* Backend, FVulkanSwapchain* Swapchain, FVulkanRenderPass* RenderPass)
+{
+    for (uint32 Index = 0; Index < Swapchain->ImageCount; ++Index)
+    {
+        /** TODO: make this dynamic based on the currently configured attachments. */
+        const uint32 AttachmentCount = 2;
+        VkImageView Attachments[] = { Swapchain->ImageViews[Index], Swapchain->DepthAttachment.ImageView };
+
+        VulkanCreateFrameBuffer(
+            &GVulkanContext, 
+            RenderPass, 
+            GVulkanContext.FrameBufferWidth, 
+            GVulkanContext.FrameBufferHeight, 
+            AttachmentCount, 
+            Attachments, 
+            &GVulkanContext.Swapchain.FrameBuffers[Index]
+        );
+
+    }
 }

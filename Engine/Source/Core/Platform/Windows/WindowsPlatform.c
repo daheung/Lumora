@@ -3,6 +3,8 @@
 #include "Asserts.h"
 #include "InputCore/Input.h"
 #include "Core/Containers/Array.h"
+#include "Core/Misc/CoreEvent.h"
+
 
 #if PLATFORM_WINDOWS
 
@@ -266,8 +268,11 @@ LRESULT CALLBACK Win32ProcessMessage(HWND Hwnd, UINT Message, WPARAM wParam, LPA
         /** Notify the OS that erasing will be handled by the application to prevent flicker. */
         return 1;
     case WM_CLOSE:
-        /** TODO: Fire an event for the application to quit. */
-        return 0;
+    {
+        FCoreEventContext Event = { 0 };
+        FireEvent(EVENT_CODE_APPLICATION_QUIT, 0, Event);
+    }
+        return 1;
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;

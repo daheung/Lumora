@@ -202,6 +202,12 @@ LUMORA_C_API bool8 ApplocationLoop()
     return TRUE;
 }
 
+void ApplicationGetFrameBufferSize(uint32* Width, uint32* Height)
+{
+    *Width  = GApplicationState.Width;
+    *Height = GApplicationState.Height;
+}
+
 bool8 ApplicationOnEvent(uint16 Code, void* Sender, void* ListenerList, FCoreEventContext Context)
 {
     LUMORA_UNUSED_PARAM(Sender);
