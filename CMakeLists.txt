@@ -54,6 +54,11 @@ target_compile_definitions(Engine
         _CRT_SECURE_NO_WARNINGS
 )
 
+target_compile_features(Engine
+    PUBLIC
+        c_std_17
+        cxx_std_17
+)
 
 # ============================================================
 # Compiler Options
