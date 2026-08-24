@@ -64,6 +64,9 @@ void VulkanSwapchainPresent(FVulkanContext* VulkanContext, FVulkanSwapchain* Swa
 	{
 		LUMORA_FATAL("Failed to present swapchain image.");
 	}
+
+	/** Increment (and loop) the index. */
+	VulkanContext->CurrentFrame = (VulkanContext->CurrentFrame + 1) % Swapchain->MaxFramesInFlight;
 }
 
 void VulkanCreateSwapchainImpl(FVulkanContext* VulkanContext, uint32 Width, uint32 Height, FVulkanSwapchain* Swapchain)
@@ -220,6 +223,8 @@ void VulkanCreateSwapchainImpl(FVulkanContext* VulkanContext, uint32 Width, uint
 
 void VulkanReleaseSwapchainImpl(FVulkanContext* VulkanContext, FVulkanSwapchain* Swapchain)
 {
+	vkDeviceWaitIdle(VulkanContext->Device.Device);
+
 	VulkanReleaseImage(VulkanContext, &Swapchain->DepthAttachment);
 
 	/**

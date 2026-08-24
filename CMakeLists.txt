@@ -46,6 +46,7 @@ target_include_directories(Engine
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Source/Core"
         "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Source/Renderer"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Source/Runtime"
 )
 
 target_compile_definitions(Engine
@@ -54,6 +55,11 @@ target_compile_definitions(Engine
         _CRT_SECURE_NO_WARNINGS
 )
 
+target_compile_features(Engine
+    PUBLIC
+        c_std_17
+        cxx_std_17
+)
 
 # ============================================================
 # Compiler Options

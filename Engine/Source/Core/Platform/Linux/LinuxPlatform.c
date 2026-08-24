@@ -269,7 +269,21 @@ LUMORA_C_API bool8 PlatformPumpMessage(FPlatformState* PlatformState)
             break;
         case XCB_CONFIGURE_NOTIFY:
         {
-            /** TODO: Resizing */
+            /**
+             * Resizing - note that this is also triggered by moving the window, but should be
+             * passed anyway since a change in the (x, y)could mean a upper left resize.
+             * The application layer can decide what to do with this.
+             */
+            xcb_configure_notify_event_t* ConfigureEvent = (xcb_configure_notify_event_t*)Event;
+            
+            /**
+             * Fire the event. Ths application layer should pick this up, but not handle it
+             * as it shouldn be visible to other parts of the application.
+             */
+            FCoreEventContext Event = { 0 };
+            Event.Data.U16[0] = Width;
+            Event.Data.U16[1] = Height;
+            FireEvent(EVENT_CODE_RESIZED, 0, Event);
         }
             break;
         case XCB_CLIENT_MESSAGE:

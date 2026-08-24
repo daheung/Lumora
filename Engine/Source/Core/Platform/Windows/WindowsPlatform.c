@@ -3,6 +3,8 @@
 #include "Asserts.h"
 #include "InputCore/Input.h"
 #include "Core/Containers/Array.h"
+#include "Core/Misc/CoreEvent.h"
+
 
 #if PLATFORM_WINDOWS
 
@@ -135,6 +137,8 @@ void PlatformShutdown(FPlatformState* PlatformState)
 
 bool8 PlatformPumpMessage(FPlatformState* PlatformState)
 {
+    LUMORA_UNUSED_PARAM(PlatformState);
+
     MSG Message = { 0, };
     while (PeekMessage(&Message, NULL, 0, 0, PM_REMOVE))
     {
@@ -220,7 +224,7 @@ float64 PlatformGetAbsoluteTime(void)
 
 void PlatformSleep(uint64 MilliSecond)
 {
-    Sleep(MilliSecond);
+    Sleep((uint32)MilliSecond);
 }
 
 LUMORA_C_API int32 PlatformGetProcessorCount(void)
@@ -266,20 +270,26 @@ LRESULT CALLBACK Win32ProcessMessage(HWND Hwnd, UINT Message, WPARAM wParam, LPA
         /** Notify the OS that erasing will be handled by the application to prevent flicker. */
         return 1;
     case WM_CLOSE:
-        /** TODO: Fire an event for the application to quit. */
-        return 0;
+    {
+        FCoreEventContext Event = { 0 };
+        FireEvent(EVENT_CODE_APPLICATION_QUIT, 0, Event);
+    }
+        return 1;
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
     case WM_SIZE: 
     {
         /** Get the updated size. */
-        // RECT Rect = {};
-        // GetClientRect(Hwnd, &Rect);
-        // uint32 Width  = Rect.right - Rect.left;
-        // uint32 Height = Rect.bottom - Rect.top;
+         RECT Rect = { 0 };
+         GetClientRect(Hwnd, &Rect);
+         uint16 Width  = (uint16)(Rect.right - Rect.left);
+         uint16 Height = (uint16)(Rect.bottom - Rect.top);
 
-        /** TODO: Fire an event for window resize. */
+         FCoreEventContext Event = { 0 };
+         Event.Data.U16[0] = Width;
+         Event.Data.U16[1] = Height;
+         FireEvent(EVENT_CODE_RESIZED, 0, Event);
     } 
         break;
     case WM_KEYDOWN:
@@ -291,8 +301,8 @@ LRESULT CALLBACK Win32ProcessMessage(HWND Hwnd, UINT Message, WPARAM wParam, LPA
     case WM_MOUSEMOVE: 
     {
         /** Mouse move */
-        const int32 PositionX = GET_X_LPARAM(lParam);
-        const int32 PositionY = GET_Y_LPARAM(lParam);
+        const int16 PositionX = (int16)GET_X_LPARAM(lParam);
+        const int16 PositionY = (int16)GET_Y_LPARAM(lParam);
 
         /** Pass over to the input subsystem. */
         ProcessInputMouseMove(PositionX, PositionY);
@@ -304,7 +314,7 @@ LRESULT CALLBACK Win32ProcessMessage(HWND Hwnd, UINT Message, WPARAM wParam, LPA
         if (DeltaZ != 0) {
             /** Flatten the input to an OS-independent (-1, 1) */
             DeltaZ = (DeltaZ < 0) ? -1 : 1;
-            ProcessInputMouseWheel(DeltaZ);            
+            ProcessInputMouseWheel((int8)DeltaZ);            
         }
     }
         break;
@@ -376,6 +386,9 @@ LRESULT CALLBACK Win32ProcessMessage(HWND Hwnd, UINT Message, WPARAM wParam, LPA
  */
 static FORCEINLINE void ProcessKeyInputImpl(HWND Hwnd, UINT Message, WPARAM wParam, LPARAM lParam)
 {
+    LUMORA_UNUSED_PARAM(Hwnd);
+    LUMORA_UNUSED_PARAM(lParam);
+
     /** Key pressed/released */
     bool8 bPressed = (Message == WM_KEYDOWN || Message == WM_SYSKEYDOWN);
     EKeys Key = (uint16)wParam;

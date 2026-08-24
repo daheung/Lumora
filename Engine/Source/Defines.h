@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdalign.h>
 
 typedef unsigned char       uint8;
 typedef unsigned short      uint16;

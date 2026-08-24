@@ -33,6 +33,17 @@ void ReleaseRenderer()
 
 void RendererOnResize(uint16 Width, uint16 Height)
 {
+    if (GBackend)
+    {
+        if (GBackend->Resized)
+        {
+            GBackend->Resized(GBackend, Width, Height);
+        }
+    }
+    else
+    {
+        LUMORA_WARN("Renderer backend does not exist to accept resize: (%i, %i)", Width, Height);
+    }
 }
 
 bool8 RendererBeginFrame(float32 DeltaTime)

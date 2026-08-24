@@ -22,6 +22,9 @@ typedef struct FGame
 
     /** Function pointer to handle resizes, if applicable. */
     void (*OnResizeFunc)(struct FGame* GameInstance, uint32 Width, uint32 Height);
+    
+    /** Function pointer to game's release function before engine release logic. */
+    void (*ReleaseFunc)(struct FGame* GameInstance);
 
     /** Game-specific game state. Created and managed by the game. */
     void* State;

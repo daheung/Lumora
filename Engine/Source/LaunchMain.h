@@ -13,7 +13,7 @@ int main(void) {
     // InitializeLogging();
 
     /** Request the game instance from the application. */
-    FGame GameInstance;
+    FGame GameInstance = { 0 };
     if (!CreateGame(&GameInstance))
     {
         LUMORA_FATAL("Could not create game.");
