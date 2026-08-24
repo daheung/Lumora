@@ -46,6 +46,7 @@ target_include_directories(Engine
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Source/Core"
         "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Source/Renderer"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Source/Runtime"
 )
 
 target_compile_definitions(Engine
