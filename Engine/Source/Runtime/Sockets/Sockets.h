@@ -30,3 +30,5 @@ LUMORA_C_API bool8 Recv(FSocket* Socket, uint8* Data, int32 Count, int32* BytesR
 LUMORA_C_API bool8 Close(FSocket* Socket);
 
 LUMORA_C_API bool8 Shutdown(FSocket* Socket, ESocketShutdownMode ShutdownMode);
+
+LUMORA_C_API bool8 IsValidSocket(const FSocket* Socket);
