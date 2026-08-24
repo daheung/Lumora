@@ -10,16 +10,18 @@ void VulkanCreateRenderPass(
 	float32 Red, float32 Green, float32 Blue, float32 Alpha, 
 	float32 Depth, float32 Stencil
 ) {
-	LUMORA_UNUSED_PARAM(X);
-	LUMORA_UNUSED_PARAM(Y);
-	LUMORA_UNUSED_PARAM(Width);
-	LUMORA_UNUSED_PARAM(Height);
-	LUMORA_UNUSED_PARAM(Red);
-	LUMORA_UNUSED_PARAM(Green);
-	LUMORA_UNUSED_PARAM(Blue);
-	LUMORA_UNUSED_PARAM(Alpha);
-	LUMORA_UNUSED_PARAM(Depth);
-	LUMORA_UNUSED_PARAM(Stencil);
+	OutRenderPass->X = X;
+	OutRenderPass->Y = Y;
+	OutRenderPass->Width  = Width;
+	OutRenderPass->Height = Height;
+
+	OutRenderPass->Red	 = Red;
+	OutRenderPass->Green = Green;
+	OutRenderPass->Blue  = Blue;
+	OutRenderPass->Alpha = Alpha;
+
+	OutRenderPass->Depth   = Depth;
+	OutRenderPass->Stencil = Stencil;
 
 	/** Main subpass */
 	VkSubpassDescription SubpassDesc = { 0 };

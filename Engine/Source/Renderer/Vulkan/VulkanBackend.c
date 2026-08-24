@@ -15,6 +15,8 @@
 #include "Vulkan/VulkanCommandBuffer.h"
 #include "Vulkan/VulkanFrameBuffer.h"
 #include "Vulkan/VulkanFence.h"
+#include "Vulkan/VulkanUtils.h"
+
 
 struct FPlatformState;
 
@@ -36,6 +38,8 @@ void CreateCommandBuffer(FRendererBackend* Backend);
 
 void RegenerateFrameBuffers(FRendererBackend* Backend, FVulkanSwapchain* Swapchain, FVulkanRenderPass* RenderPass);
 
+bool8 RecreateSwapchain(FRendererBackend* Backend);
+
 bool8 VulkanInitializeRendererBackend(FRendererBackend* Backend, const char* ApplicationName, struct FPlatformState* PlatformState)
 {
     /** Function pointers */
@@ -45,8 +49,8 @@ bool8 VulkanInitializeRendererBackend(FRendererBackend* Backend, const char* App
     GVulkanContext.Allocator = NULL;
 
     ApplicationGetFrameBufferSize(&GCachedFrameBufferWidth, &GCachedFrameBufferHeight);
-    GVulkanContext.FrameBufferWidth  = (GCachedFrameBufferWidth  != 0) ? GCachedFrameBufferWidth  : 1280;
-    GVulkanContext.FrameBufferHeight = (GCachedFrameBufferHeight != 0) ? GCachedFrameBufferHeight : 720;
+    GVulkanContext.FrameBufferWidth  = (GCachedFrameBufferWidth  != 0) ? GCachedFrameBufferWidth  : 800;
+    GVulkanContext.FrameBufferHeight = (GCachedFrameBufferHeight != 0) ? GCachedFrameBufferHeight : 600;
     GCachedFrameBufferWidth  = 0;
     GCachedFrameBufferHeight = 0;
 
@@ -96,7 +100,7 @@ bool8 VulkanInitializeRendererBackend(FRendererBackend* Backend, const char* App
     RequiredValidationLayerNames = CArrayCreate(sizeof(const char*));
     const char* ValidationLayer = "VK_LAYER_KHRONOS_validation";
     CArrayPush(RequiredValidationLayerNames, &ValidationLayer);
-    RequiredValidationLayerCount = CArrayLength(RequiredValidationLayerNames);
+    RequiredValidationLayerCount = (uint32)CArrayLength(RequiredValidationLayerNames);
 
     /** Obtain a list of available validation layers. */
     uint32 AvailableLayerCount = 0;
@@ -183,7 +187,15 @@ bool8 VulkanInitializeRendererBackend(FRendererBackend* Backend, const char* App
     VulkanCreateSwapchain(&GVulkanContext, GVulkanContext.FrameBufferWidth, GVulkanContext.FrameBufferWidth, &GVulkanContext.Swapchain);
 
     /** RenderPass creation. */
-    VulkanCreateRenderPass(&GVulkanContext, &GVulkanContext.MainRenderPass, 0, 0, GVulkanContext.FrameBufferWidth, GVulkanContext.FrameBufferWidth, 0.0f, 0.0f, 0.2f, 1.0f, 1.0f, 0);
+    VulkanCreateRenderPass(
+        &GVulkanContext, 
+        &GVulkanContext.MainRenderPass, 
+        0, 0, 
+        (float32)GVulkanContext.FrameBufferWidth, 
+        (float32)GVulkanContext.FrameBufferHeight, 
+        0.0f, 0.0f, 0.2f, 1.0f, 
+        1.0f, 0.0f
+    );
 
     /** Swapchain framebuffers */
     GVulkanContext.Swapchain.FrameBuffers = CArrayCreateWithCapacity(sizeof(FVulkanFrameBuffer), GVulkanContext.Swapchain.ImageCount);
@@ -194,14 +206,14 @@ bool8 VulkanInitializeRendererBackend(FRendererBackend* Backend, const char* App
 
     /** Create sync objects. */
     GVulkanContext.ImageAvailableSemaphores = CArrayCreateWithCapacity(sizeof(VkSemaphore), GVulkanContext.Swapchain.MaxFramesInFlight);
-    GVulkanContext.QueueCompleteSemaphores  = CArrayCreateWithCapacity(sizeof(VkSemaphore), GVulkanContext.Swapchain.MaxFramesInFlight);
+    GVulkanContext.QueueCompleteSemaphores  = CArrayCreateWithCapacity(sizeof(VkSemaphore), GVulkanContext.Swapchain.ImageCount);
     GVulkanContext.InFlightFences = CArrayCreateWithCapacity(sizeof(FVulkanFence), GVulkanContext.Swapchain.MaxFramesInFlight);
 
     for (uint8 Index = 0; Index < GVulkanContext.Swapchain.MaxFramesInFlight; ++Index)
     {
         VkSemaphoreCreateInfo SemaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
         vkCreateSemaphore(GVulkanContext.Device.Device, &SemaphoreCreateInfo, GVulkanContext.Allocator, &GVulkanContext.ImageAvailableSemaphores[Index]);
-        vkCreateSemaphore(GVulkanContext.Device.Device, &SemaphoreCreateInfo, GVulkanContext.Allocator, &GVulkanContext.QueueCompleteSemaphores[Index]);
+        //vkCreateSemaphore(GVulkanContext.Device.Device, &SemaphoreCreateInfo, GVulkanContext.Allocator, &GVulkanContext.QueueCompleteSemaphores[Index]);
 
         /**
          * Create the fence in a signal state, indicating that the first frame has already been "rendered".
@@ -209,6 +221,16 @@ bool8 VulkanInitializeRendererBackend(FRendererBackend* Backend, const char* App
          * cannot be rendered until a frame is "rendered" before it.
          */
         VulkanCreateFence(&GVulkanContext, TRUE, &GVulkanContext.InFlightFences[Index]);
+    }
+
+    for (uint32 i = 0; i < GVulkanContext.Swapchain.ImageCount; ++i)
+    {
+        VkSemaphoreCreateInfo SemaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+        vkCreateSemaphore(
+            GVulkanContext.Device.Device,
+            &SemaphoreCreateInfo,
+            GVulkanContext.Allocator,
+            &GVulkanContext.QueueCompleteSemaphores[i]);
     }
 
     /** 
@@ -235,6 +257,8 @@ bool8 VulkanInitializeRendererBackend(FRendererBackend* Backend, const char* App
 
 void VulkanReleaseRendererBackend(FRendererBackend* Backend)
 {
+    LUMORA_UNUSED_PARAM(Backend);
+
     vkDeviceWaitIdle(GVulkanContext.Device.Device);
 
     /** Destroy in the opposite order of creation. */
@@ -246,11 +270,15 @@ void VulkanReleaseRendererBackend(FRendererBackend* Backend)
         {
             vkDestroySemaphore(GVulkanContext.Device.Device, GVulkanContext.ImageAvailableSemaphores[Index], GVulkanContext.Allocator);
         }
+        VulkanReleaseFence(&GVulkanContext, &GVulkanContext.InFlightFences[Index]);
+    }
+
+    for (uint32 Index = 0; Index < GVulkanContext.Swapchain.ImageCount; ++Index)
+    {
         if (GVulkanContext.QueueCompleteSemaphores[Index])
         {
             vkDestroySemaphore(GVulkanContext.Device.Device, GVulkanContext.QueueCompleteSemaphores[Index], GVulkanContext.Allocator);
         }
-        VulkanReleaseFence(&GVulkanContext, &GVulkanContext.InFlightFences[Index]);
     }
     
     CArrayRelease(GVulkanContext.ImageAvailableSemaphores);
@@ -310,15 +338,184 @@ void VulkanReleaseRendererBackend(FRendererBackend* Backend)
 
 void VulkanRendererOnResized(FRendererBackend* Backend, uint16 Width, uint16 Height)
 {
+    LUMORA_UNUSED_PARAM(Backend);
+
+    /**
+     * Update the "framebuffer size generation", a counter which indicates when the 
+     * framebuffer size has been updated.
+     */
+    GCachedFrameBufferWidth = Width;
+    GCachedFrameBufferHeight = Height;
+    GVulkanContext.FrameBufferSizeGeneration++;
+
+    LUMORA_INFO("Vulkan renderer backend->resized: Width-Height-Generation: %i-%i-%llu", Width, Height, GVulkanContext.FrameBufferSizeGeneration);
 }
 
 bool8 VulkanRendererBackendBeginFrame(FRendererBackend* Backend, float32 DeltaTime)
 {
+    LUMORA_UNUSED_PARAM(DeltaTime);
+
+    FVulkanDevice* Device = &GVulkanContext.Device;
+    
+    /** Check if recreating swapchain and boot out. */
+    if (GVulkanContext.bRecreatingSwapchain)
+    {
+        VkResult Result = vkDeviceWaitIdle(Device->Device);
+        if (!IsVulkanResultSuccess(Result))
+        {
+            LUMORA_ERROR("VulkanRendererBackendBeginFrame vkDeviceWaitIdle (1) failed: '%s'", VulkanResultString(Result, TRUE));
+            return FALSE;
+        }
+
+        LUMORA_INFO("Recreating swapchain, booting.");
+        return FALSE;
+    }
+
+    /** Check if the framebuffer has been resized. If so, a new swapchain must be created. */
+    if (GVulkanContext.FrameBufferSizeGeneration != GVulkanContext.FrameBufferSizeLastGeneration)
+    {
+        VkResult Result = vkDeviceWaitIdle(Device->Device);
+        if (!IsVulkanResultSuccess(Result))
+        {
+            LUMORA_ERROR("VulkanRendererBackendBeginFrame vkDeviceWaitIdle (1) failed: '%s'", VulkanResultString(Result, TRUE));
+            return FALSE;
+        }
+
+        /** 
+         * If the swapchain recreation failed (because, for example, the window was minimized),
+         * boot out before unsetting the flag.
+         */
+        if (!RecreateSwapchain(Backend))
+        {
+            return FALSE;
+        }
+
+        LUMORA_INFO("Resized, booting.");
+        return FALSE;
+    }
+
+    /** Wait for the excution fo the current frame to complete. The fence being free will allow this one to move on. */
+    if (!VulkanFenceWait(&GVulkanContext, &GVulkanContext.InFlightFences[GVulkanContext.CurrentFrame], UINT64_MAX))
+    {
+        LUMORA_WARN("Inflight fence wait failure.");
+        return FALSE;
+    }
+
+    /**
+     * Acquire the next image from swapchain. Pass along the semaphore that should signaled when this completes.
+     * This same semaphore will later be waited on by the queue submission to ensure this image is available.
+     */
+    if (!VulkanSwapchainAcquireNextImageIndex(
+        &GVulkanContext, 
+        &GVulkanContext.Swapchain, 
+        UINT64_MAX, 
+        GVulkanContext.ImageAvailableSemaphores[GVulkanContext.CurrentFrame], 
+        NULL, 
+        &GVulkanContext.ImageIndex
+    )) {
+        return FALSE;
+    }
+
+    /** Begin recording commands. */
+    FVulkanCommandBuffer* CommandBuffer = &GVulkanContext.GraphicsCommandBuffers[GVulkanContext.ImageIndex];
+    VulkanResetCommandBuffer(CommandBuffer);
+    VulkanBeginCommandBuffer(CommandBuffer, FALSE, FALSE, FALSE);
+
+    VkViewport ViewPort = { 0 };
+    ViewPort.x        =  (float32)0.0f;
+    ViewPort.y        =  (float32)GVulkanContext.FrameBufferHeight;
+    ViewPort.width    =  (float32)GVulkanContext.FrameBufferWidth;
+    ViewPort.height   = -(float32)GVulkanContext.FrameBufferHeight;
+    ViewPort.minDepth = 0.0f;
+    ViewPort.maxDepth = 1.0f;
+
+    /** Scissor */
+    VkRect2D Scissor = { 0 };
+    Scissor.extent.width = GVulkanContext.FrameBufferWidth;
+    Scissor.extent.height = GVulkanContext.FrameBufferHeight;
+
+    vkCmdSetViewport(CommandBuffer->Handle, 0, 1, &ViewPort);
+    vkCmdSetScissor(CommandBuffer->Handle, 0, 1, &Scissor);
+
+    GVulkanContext.MainRenderPass.Width  = (float32)GVulkanContext.FrameBufferWidth;
+    GVulkanContext.MainRenderPass.Height = (float32)GVulkanContext.FrameBufferHeight;
+
+    /** Begin the render pass. */
+    VulkanRenderPassBegin(CommandBuffer, &GVulkanContext.MainRenderPass, GVulkanContext.Swapchain.FrameBuffers[GVulkanContext.ImageIndex].Handle);
+
     return TRUE;
 }
 
 bool8 VulkanRendererBackendEndFrame(FRendererBackend* Backend, float32 DeltaTime)
 {
+    LUMORA_UNUSED_PARAM(Backend);
+    LUMORA_UNUSED_PARAM(DeltaTime);
+
+    FVulkanCommandBuffer* CommandBuffer = &GVulkanContext.GraphicsCommandBuffers[GVulkanContext.ImageIndex];
+
+    /** End render pass. */
+    VulkanRenderPassEnd(CommandBuffer, &GVulkanContext.MainRenderPass);
+
+    VulkanEndCommandBuffer(CommandBuffer);
+
+    /** Make sure the previous frame is not using this image (i.e. its fencd is being waited on) */
+    if (GVulkanContext.ImagesInFlight[GVulkanContext.ImageIndex] != VK_NULL_HANDLE) // Was frame
+    {
+        VulkanFenceWait(&GVulkanContext, GVulkanContext.ImagesInFlight[GVulkanContext.ImageIndex], UINT64_MAX);
+    }
+
+    /** Mark the image fence as in-use by this frame. */
+    GVulkanContext.ImagesInFlight[GVulkanContext.ImageIndex] = &GVulkanContext.InFlightFences[GVulkanContext.CurrentFrame];
+
+    /** Reset the fence for use on the next frame. */
+    VulkanFenceReset(&GVulkanContext, &GVulkanContext.InFlightFences[GVulkanContext.CurrentFrame]);
+
+    /** 
+     * Submit the queue and wait for the operation to complete. 
+     * Begin queue submission.
+     */
+    VkSubmitInfo SubmitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+
+    /** Command buffer(s) to be executed. */ 
+    SubmitInfo.commandBufferCount = 1;
+    SubmitInfo.pCommandBuffers = &CommandBuffer->Handle;
+
+    /** The semaphore(s) to be signaled thwn the queue is complete. */
+    SubmitInfo.signalSemaphoreCount = 1;
+    SubmitInfo.pSignalSemaphores = &GVulkanContext.QueueCompleteSemaphores[GVulkanContext.ImageIndex];
+
+    /** Wait semaphore ensures that the operation cannot begin until the image is available. */
+    SubmitInfo.waitSemaphoreCount = 1;
+    SubmitInfo.pWaitSemaphores = &GVulkanContext.ImageAvailableSemaphores[GVulkanContext.CurrentFrame];
+
+    /**
+     * Each semaphore waits on the corresponding pipeline state to complete. 1:1 ratio.
+     * VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT prevents subsquent colour attachment
+     * writes from executing until the semaphore signals (i.e. one frame is presented at a time)
+     */
+    VkPipelineStageFlags Flags[1] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+    SubmitInfo.pWaitDstStageMask = Flags;
+
+    VkResult Result = vkQueueSubmit(GVulkanContext.Device.GraphicsQueue, 1, &SubmitInfo, GVulkanContext.InFlightFences[GVulkanContext.CurrentFrame].Handle);
+    if (Result != VK_SUCCESS)
+    {
+        LUMORA_ERROR("vkQueueSubmit failed with result: %s", VulkanResultString(Result, TRUE));
+        return FALSE;
+    }
+
+    VulkanUpdateSubmittedCommandBuffer(CommandBuffer);
+    /** End queue submission */
+
+    /** Give the image back to the swapchain. */
+    VulkanSwapchainPresent(
+        &GVulkanContext, 
+        &GVulkanContext.Swapchain, 
+        GVulkanContext.Device.GraphicsQueue, 
+        GVulkanContext.Device.PresentQueue, 
+        GVulkanContext.QueueCompleteSemaphores[GVulkanContext.ImageIndex], 
+        GVulkanContext.ImageIndex
+    );
+
     return TRUE;
 }
 
@@ -328,6 +525,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VkDebugCallback(
     const VkDebugUtilsMessengerCallbackDataEXT* CallbackData,
     void* UserData
 ) {
+    LUMORA_UNUSED_PARAM(MessageTypes);
+    LUMORA_UNUSED_PARAM(UserData);
+
     switch (MessageSeverity)
     {
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
@@ -394,6 +594,8 @@ void CreateCommandBuffer(FRendererBackend* Backend)
 
 void RegenerateFrameBuffers(FRendererBackend* Backend, FVulkanSwapchain* Swapchain, FVulkanRenderPass* RenderPass)
 {
+    LUMORA_UNUSED_PARAM(Backend);
+
     for (uint32 Index = 0; Index < Swapchain->ImageCount; ++Index)
     {
         /** TODO: make this dynamic based on the currently configured attachments. */
@@ -409,6 +611,79 @@ void RegenerateFrameBuffers(FRendererBackend* Backend, FVulkanSwapchain* Swapcha
             Attachments, 
             &GVulkanContext.Swapchain.FrameBuffers[Index]
         );
-
     }
+}
+
+bool8 RecreateSwapchain(FRendererBackend* Backend)
+{
+    /** If already being recreated, do not try again. */
+    if (GVulkanContext.bRecreatingSwapchain)
+    {
+        LUMORA_DEBUG("RecreateSwapchain called when already recreating. Booting.");
+        return FALSE;
+    }
+
+    /** Detect if the window is too smail to be drawn to. */
+    const bool8 bIsSmallWidth  = GVulkanContext.FrameBufferWidth == 0;
+    const bool8 bIsSmallHeight = GVulkanContext.FrameBufferHeight == 0;
+    if (bIsSmallWidth || bIsSmallHeight)
+    { 
+        LUMORA_DEBUG("RecreateSwapchain called when window is < 1 in a dimension. Booting.");
+        return FALSE;
+    }
+
+    /** Mark as recreating if the demensions are valid. */
+    GVulkanContext.bRecreatingSwapchain = TRUE;
+
+    /** Wait for any operations to complete. */
+    vkDeviceWaitIdle(GVulkanContext.Device.Device);
+
+    /** Clear these out just in case. */
+    for (uint32 Index = 0; Index < GVulkanContext.Swapchain.ImageCount; ++Index)
+    {
+        GVulkanContext.ImagesInFlight[Index] = NULL;
+    }
+
+    /** Requery support */
+    VulkanDeviceQuerySwapchainSupport(GVulkanContext.Device.PhysicalDevice, GVulkanContext.Surface, &GVulkanContext.Device.SwapchainSupport);
+    VulkanDeviceDetectDepthFormat(&GVulkanContext.Device);
+
+    VulkanRecreateSwapchain(&GVulkanContext, GCachedFrameBufferWidth, GCachedFrameBufferHeight, &GVulkanContext.Swapchain);
+
+    /** Sync the framebuffer size with the cached sizes. */
+    GVulkanContext.FrameBufferWidth  = GCachedFrameBufferWidth;
+    GVulkanContext.FrameBufferHeight = GCachedFrameBufferHeight;
+    GVulkanContext.MainRenderPass.Width  = (float32)GVulkanContext.FrameBufferWidth;
+    GVulkanContext.MainRenderPass.Height = (float32)GVulkanContext.FrameBufferHeight;
+    GCachedFrameBufferWidth  = 0;
+    GCachedFrameBufferHeight = 0;
+
+    /** Update framebuffer size generation. */
+    GVulkanContext.FrameBufferSizeLastGeneration = GVulkanContext.FrameBufferSizeGeneration;
+
+    /** Cleanup swapchain */
+    for (uint32 Index = 0; Index < GVulkanContext.Swapchain.ImageCount; ++Index)
+    {
+            (&GVulkanContext, GVulkanContext.Device.GraphicsCommandPool, &GVulkanContext.GraphicsCommandBuffers[Index]);
+    }
+
+    /** Freme buffers. */
+    for (uint32 Index = 0; Index < GVulkanContext.Swapchain.ImageCount; ++Index)
+    {
+        VulkanReleaseFrameBuffer(&GVulkanContext, &GVulkanContext.Swapchain.FrameBuffers[Index]);
+    }
+
+    GVulkanContext.MainRenderPass.X = 0;
+    GVulkanContext.MainRenderPass.Y = 0;
+    GVulkanContext.MainRenderPass.Width  = (float32)GVulkanContext.FrameBufferWidth;
+    GVulkanContext.MainRenderPass.Height = (float32)GVulkanContext.FrameBufferHeight;
+
+    RegenerateFrameBuffers(Backend, &GVulkanContext.Swapchain, &GVulkanContext.MainRenderPass);
+
+    CreateCommandBuffer(Backend);
+
+    /** Clear the recreating flag. */
+    GVulkanContext.bRecreatingSwapchain = FALSE;
+
+    return TRUE;
 }

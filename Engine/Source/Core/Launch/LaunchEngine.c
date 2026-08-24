@@ -27,6 +27,7 @@ static FApplicationState GApplicationState;
 /** Event handlers */
 static bool8 ApplicationOnEvent(uint16 Code, void* Sender, void* ListenerList, FCoreEventContext Context);
 static bool8 ApplicationOnKey(uint16 Code, void* Sender, void* ListenerList, FCoreEventContext Context);
+static bool8 ApplicationOnResized(uint16 Code, void* Sender, void* ListenerList, FCoreEventContext Context);
 
 LUMORA_C_API bool8 ApplicationCreate(struct FGame* GameInstance)
 {
@@ -48,6 +49,7 @@ LUMORA_C_API bool8 ApplicationCreate(struct FGame* GameInstance)
     RegisterEvent(EVENT_CODE_APPLICATION_QUIT, 0, ApplicationOnEvent);
     RegisterEvent(EVENT_CODE_KEY_PRESSED     , 0, ApplicationOnKey);
     RegisterEvent(EVENT_CODE_KEY_RELEASED    , 0, ApplicationOnKey);
+    RegisterEvent(EVENT_CODE_RESIZED         , 0, ApplicationOnResized);
 
     GApplicationState.bIsRunning = TRUE;
     GApplicationState.bIsSuspended = FALSE;
@@ -142,7 +144,7 @@ LUMORA_C_API bool8 ApplocationLoop()
             }
 
             /** TODO: Refactor packet creation */
-            FRenderPacket Packet = {};
+            FRenderPacket Packet = { 0 };
             Packet.DeltaTime = DeltaTime;
             RendererDrawFrame(&Packet);
 
@@ -238,7 +240,7 @@ bool8 ApplicationOnKey(uint16 Code, void* Sender, void* ListenerList, FCoreEvent
         if (KeyCode == KEY_ESCAPE)
         {
             /** NOTE: Technically firing an event to itself, but there may be other listeners. */
-            FCoreEventContext EventContext = {};
+            FCoreEventContext EventContext = { 0 };
             FireEvent(EVENT_CODE_APPLICATION_QUIT, 0, EventContext);
 
             /** Block anything else from processing this. */
@@ -271,5 +273,50 @@ bool8 ApplicationOnKey(uint16 Code, void* Sender, void* ListenerList, FCoreEvent
         break;
     }
 
+    return FALSE;
+}
+
+bool8 ApplicationOnResized(uint16 Code, void* Sender, void* ListenerList, FCoreEventContext Context)
+{
+    LUMORA_ASSERT(Code == EVENT_CODE_RESIZED);
+
+    uint16 Width  = Context.Data.U16[0];
+    uint16 Height = Context.Data.U16[1];
+
+    /** Check if different. If so, trigger a resize event. */
+    const bool8 bIsResizedWidth  = Width  != GApplicationState.Width;
+    const bool8 bIsResizedHeight = Height != GApplicationState.Height;
+    if (bIsResizedWidth || bIsResizedHeight)
+    {
+        GApplicationState.Width = Width;
+        GApplicationState.Height = Height;
+
+        LUMORA_DEBUG("Window resize: (%i, %i)", Width, Height);
+
+        const bool8 bIsHandleMinimization = (Width == 0) || (Height == 0);
+        if (bIsHandleMinimization)
+        {
+            LUMORA_INFO("Window minimized. suspending application.");
+            GApplicationState.bIsSuspended = TRUE;
+            return TRUE;
+        }
+        else
+        {
+            if (GApplicationState.bIsSuspended)
+            {
+                LUMORA_INFO("Window restored, resuming application.");
+                GApplicationState.bIsSuspended = FALSE;
+            }
+
+            if (GApplicationState.GameInstance->OnResizeFunc)
+            {
+                GApplicationState.GameInstance->OnResizeFunc(GApplicationState.GameInstance, Width, Height);
+            }
+
+            RendererOnResize(Width, Height);
+        }
+    }
+
+    /** Event purposely not handled to allow other listeners to get this.*/
     return FALSE;
 }

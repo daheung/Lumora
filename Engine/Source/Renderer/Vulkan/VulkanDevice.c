@@ -401,14 +401,14 @@ bool8 PhysicalDeviceMeetsRequirements(
         /** Graphics queue? */
         if (QueueFamilies[Index].queueFlags & VK_QUEUE_GRAPHICS_BIT)
         {
-            OutQueueFamilyInfo->GraphicsFamilyIndex = 1;
+            OutQueueFamilyInfo->GraphicsFamilyIndex = Index;
             ++CurrentTransferScore;
         }
 
         /** Compute queue? */
         if (QueueFamilies[Index].queueFlags & VK_QUEUE_COMPUTE_BIT)
         {
-            OutQueueFamilyInfo->ComputeFamilyIndex = 1;
+            OutQueueFamilyInfo->ComputeFamilyIndex = Index;
             ++CurrentTransferScore;
         }
 
@@ -422,7 +422,7 @@ bool8 PhysicalDeviceMeetsRequirements(
             if (CurrentTransferScore <= MinTransferScore)
             {
                 MinTransferScore = CurrentTransferScore;
-                OutQueueFamilyInfo->TransferFamilyIndex = 1;
+                OutQueueFamilyInfo->TransferFamilyIndex = Index;
             }
         }
 
@@ -431,7 +431,7 @@ bool8 PhysicalDeviceMeetsRequirements(
         VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(Device, Index, Surface, &bSupportsPresent));
         if (bSupportsPresent)
         {
-            OutQueueFamilyInfo->PresentFamilyIndex = 0;
+            OutQueueFamilyInfo->PresentFamilyIndex = Index;
         }
     }
 

@@ -132,6 +132,18 @@ typedef struct FVulkanContext
     /** The framebuffer's current height. */
     uint32 FrameBufferHeight;
 
+    /** 
+     * Current generation of framebuffer size. If it does not match FrameBufferSizeLastGeneration,
+     * a new one should be generated.
+     */
+    uint64 FrameBufferSizeGeneration;
+
+    /**
+     * The generation of the framebuffer when it was last created. Set to FrameBufferSizeGeneration 
+     * when updated.
+     */
+    uint64 FrameBufferSizeLastGeneration;
+
     FVulkanSwapchain Swapchain;
     FVulkanRenderPass MainRenderPass;
 

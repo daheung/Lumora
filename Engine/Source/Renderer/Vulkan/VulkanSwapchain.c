@@ -223,6 +223,8 @@ void VulkanCreateSwapchainImpl(FVulkanContext* VulkanContext, uint32 Width, uint
 
 void VulkanReleaseSwapchainImpl(FVulkanContext* VulkanContext, FVulkanSwapchain* Swapchain)
 {
+	vkDeviceWaitIdle(VulkanContext->Device.Device);
+
 	VulkanReleaseImage(VulkanContext, &Swapchain->DepthAttachment);
 
 	/**
