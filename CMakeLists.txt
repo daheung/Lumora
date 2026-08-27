@@ -5,170 +5,152 @@ project(Lumora
     LANGUAGES C CXX
 )
 
+
+# ============================================================
+# Project Settings
+# ============================================================
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMake")
-set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT Testbed)
+set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT TestBed)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG   "${CMAKE_SOURCE_DIR}/bin/Debug")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin/Release")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG   "${CMAKE_SOURCE_DIR}/bin/Debug")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin/Release")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG   "${CMAKE_SOURCE_DIR}/lib/Debug")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/lib/Release")
+set(LUMORA_OUTPUT_DIR
+    "${CMAKE_SOURCE_DIR}/Outputs/$<CONFIG>"
+)
+
+set(LUMORA_BINARY_OUTPUT_DIR
+    "${LUMORA_OUTPUT_DIR}/bin"
+)
+
+# .exe, Windows .dll
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY
+    "${LUMORA_OUTPUT_DIR}"
+)
+
+# Linux .so, macOS .dylib
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY
+    "${LUMORA_OUTPUT_DIR}"
+)
+
+# .lib, .a, Windows DLL import library
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY
+    "${LUMORA_BINARY_OUTPUT_DIR}"
+)
+
+# Linker-generated PDB (.exe/.dll PDB)
+set(CMAKE_PDB_OUTPUT_DIRECTORY
+    "${LUMORA_BINARY_OUTPUT_DIR}"
+)
+
+# Compiler-generated PDB
+set(CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY
+    "${LUMORA_BINARY_OUTPUT_DIR}"
+)
+
 
 # ============================================================
-# Engine
+# CMake Modules
 # ============================================================
 
-file(GLOB_RECURSE LUMORA_ENGINE_SOURCES
-    CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Source/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Source/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Source/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Source/*.hpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Source/*.inl"
+list(APPEND CMAKE_MODULE_PATH
+    "${CMAKE_SOURCE_DIR}/CMake"
 )
 
-add_library(Engine SHARED
-    ${LUMORA_ENGINE_SOURCES}
-)
+include(CompilerOptions)
+include(Assets)
+include(Shaders)
 
-source_group(
-    TREE "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Source"
-    PREFIX "Source"
-    FILES ${LUMORA_ENGINE_SOURCES}
-)
-
-target_include_directories(Engine
-    PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Source"
-
-    PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Source/Core"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Source/Renderer"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Source/Runtime"
-)
-
-target_compile_definitions(Engine
-    PRIVATE
-        LUMORA_EXPORT
-        _CRT_SECURE_NO_WARNINGS
-)
-
-target_compile_features(Engine
-    PUBLIC
-        c_std_17
-        cxx_std_17
-)
 
 # ============================================================
-# Compiler Options
+# Dependencies
 # ============================================================
 
-if(MSVC)
+find_package(Vulkan REQUIRED COMPONENTS glslc)
 
-    message(STATUS "Lumora compiler: MSVC")
 
-    target_compile_options(Engine PRIVATE /W4)
-    target_compile_options(Engine PRIVATE
-        $<$<CONFIG:Release>:/Zi>
-        $<$<CONFIG:Release>:/Zo>
+# ============================================================
+# Assets
+# ============================================================
+
+set(LUMORA_ASSET_SOURCE_DIR
+    "${CMAKE_SOURCE_DIR}/Assets"
+)
+
+set(LUMORA_ASSET_OUTPUT_DIR
+    "${CMAKE_SOURCE_DIR}/Outputs/$<CONFIG>/Assets"
+)
+
+set(LUMORA_SHADER_SOURCE_DIR
+    "${LUMORA_ASSET_SOURCE_DIR}/Shaders"
+)
+
+set(LUMORA_SHADER_OUTPUT_DIR
+    "${LUMORA_ASSET_OUTPUT_DIR}/Shaders"
+)
+
+lumora_create_asset_copy_target(
+    CopyAssets
+    "${LUMORA_ASSET_SOURCE_DIR}"
+    "${LUMORA_ASSET_OUTPUT_DIR}"
+)
+
+
+# ============================================================
+# Shader Compilation
+# ============================================================
+
+set(LUMORA_SHADER_OUTPUTS)
+
+lumora_compile_shader(
+    LUMORA_OBJECT_VERT_SPV
+    "${LUMORA_SHADER_SOURCE_DIR}"
+    "${LUMORA_SHADER_OUTPUT_DIR}"
+    "Builtin.ObjectShader.vert.glsl"
+    vert
+)
+
+if(LUMORA_OBJECT_VERT_SPV)
+    list(APPEND LUMORA_SHADER_OUTPUTS
+        "${LUMORA_OBJECT_VERT_SPV}"
     )
-    target_link_options(Engine PRIVATE
-        $<$<CONFIG:Release>:/DEBUG>
-        $<$<CONFIG:Release>:/INCREMENTAL:NO>
-    )
-
-elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
-
-    message(STATUS "Lumora compiler: Clang")
-
-    target_compile_options(Engine PRIVATE
-        -Wall
-        -Wextra
-        -Wvarargs
-        $<$<CONFIG:Release>:-g>
-        $<$<CONFIG:Release>:-fno-omit-frame-pointer>
-    )
-
-elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU")
-
-    message(STATUS "Lumora compiler: GCC")
-
-    target_compile_options(Engine
-        PRIVATE
-            -Wall
-            -Wextra
-            -Werror
-    )
-
-else()
-
-    message(WARNING
-        "Unsupported compiler: ${CMAKE_C_COMPILER_ID}"
-    )
-
 endif()
 
-
-# ============================================================
-# Vulkan
-# ============================================================
-
-find_package(Vulkan REQUIRED)
-
-target_link_libraries(Engine
-    PRIVATE
-        Vulkan::Vulkan
+lumora_compile_shader(
+    LUMORA_OBJECT_FRAG_SPV
+    "${LUMORA_SHADER_SOURCE_DIR}"
+    "${LUMORA_SHADER_OUTPUT_DIR}"
+    "Builtin.ObjectShader.frag.glsl"
+    frag
 )
 
-if(WIN32)
-
-    target_link_libraries(Engine
-        PRIVATE
-            ws2_32
-            user32
+if(LUMORA_OBJECT_FRAG_SPV)
+    list(APPEND LUMORA_SHADER_OUTPUTS
+        "${LUMORA_OBJECT_FRAG_SPV}"
     )
-
-elseif(UNIX)
-
-    find_package(X11 REQUIRED)
-    target_link_libraries(Engine PRIVATE
-            dl
-            pthread
-    )
-    target_link_libraries(Engine PRIVATE
-            X11::X11
-            X11::xcb
-            X11::X11_xcb
-    )
-
 endif()
 
+add_custom_target(CompileShaders
+    ALL
+    DEPENDS
+        ${LUMORA_SHADER_OUTPUTS}
+)
+
+add_dependencies(CompileShaders CopyAssets)
+
+set_target_properties(
+    CopyAssets
+    CompileShaders
+    PROPERTIES
+        FOLDER "CMake"
+)
+
 
 # ============================================================
-# Testbed
+# Targets
 # ============================================================
 
-file(GLOB_RECURSE LUMORA_TESTBED_SOURCES
-    CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/Testbed/Source/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Testbed/Source/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Testbed/Source/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Testbed/Source/*.hpp"
-)
+add_subdirectory(Engine)
+add_subdirectory(TestBed)
+add_subdirectory(UnitTest)
 
-add_executable(Testbed
-    ${LUMORA_TESTBED_SOURCES}
-)
-
-source_group(
-    TREE "${CMAKE_CURRENT_SOURCE_DIR}/Testbed/Source"
-    PREFIX "Source"
-    FILES ${LUMORA_TESTBED_SOURCES}
-)
-
-target_link_libraries(Testbed
-    PRIVATE
-        Engine
-)
+add_dependencies(TestBed CompileShaders)
