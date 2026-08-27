@@ -26,7 +26,16 @@ typedef enum ELogLevel
     LOG_LEVEL_COUNT,
 } ELogLevel;
 
-LUMORA_C_API bool8 InitializeLogging();
+/**
+ * @brief Initializes logging system. Call twice; once with state = 0 to get required memory size,
+ * then a second time passing allocated memory to state.
+ * 
+ * @param MemoryRequirement A pointer to hold the required size of internal state.
+ * @param State 0 if just requesting memory requirement, otherwise allocated block of memory.
+ * @return bool8 True on success; otherwise false.
+ */
+LUMORA_C_API bool8 InitializeLogging(size_t* const MemoryRequirement, void* State);
+
 LUMORA_C_API void ShutdownLogging();
 
 LUMORA_C_API void LogOutput(ELogLevel LogLevel, const char* Message, ...);

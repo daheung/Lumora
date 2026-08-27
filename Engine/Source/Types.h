@@ -28,4 +28,7 @@ typedef struct FGame
 
     /** Game-specific game state. Created and managed by the game. */
     void* State;
+
+    /** Application state.*/
+    void* ApplicationState;
 } FGame;

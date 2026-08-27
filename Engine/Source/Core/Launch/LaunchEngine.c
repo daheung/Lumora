@@ -1,14 +1,30 @@
 #include "LaunchEngine.h"
 
 #include "Types.h"
-#include "Logger.h"
-#include "Platform/Platform.h"
-#include "HAL/LumoraMemory.h"
-#include "Misc/CoreEvent.h"
-#include "Misc/Clock.h"
+
+#include "Core/Logger.h"
+#include "Core/Platform/Platform.h"
+#include "Core/HAL/LumoraMemory.h"
+#include "Core/Misc/CoreEvent.h"
+#include "Core/Misc/Clock.h"
+#include "Core/Memory/LinearAllocator.h"
+
 #include "InputCore/Input.h"
 
 #include "Renderer/RendererFrontend.h"
+
+#define INITIALIZE_SUBSYSTEM_BY_ALLOCATOR(Initializer, SubsystemMemoryRequirement, SystemState)                                         \
+    do                                                                                                                                  \
+    {                                                                                                                                   \
+        Initializer(&SubsystemMemoryRequirement, NULL);                                                                                 \
+        SystemState = AllocateLinearAllocator(&GApplicationState->SystemAllocator, SubsystemMemoryRequirement);                         \
+        if (!Initializer(&SubsystemMemoryRequirement, (void*)SystemState))                                                              \
+        {                                                                                                                               \
+            LUMORA_ERROR("Failed to initialize system; shutting down.");                                                                \
+            return FALSE;                                                                                                               \
+        }                                                                                                                               \
+    } while (0)
+    
 typedef struct FApplicationState
 {
     struct FGame* GameInstance;
@@ -19,10 +35,18 @@ typedef struct FApplicationState
     int16 Height;
     FClock Clock;
     float64 LastTime;
+
+    FLinearAllocator SystemAllocator;
+
+    size_t LoggingSystemMemoryRequirement;
+    void* LoggingSystemState;
+
+    size_t MemorySystemMemoryRequirement;
+    void* MemorySystemState;
 } FApplicationState;
 
-static bool8 bInitialized = FALSE;
-static FApplicationState GApplicationState;
+//static bool8 bInitialized = FALSE;
+static FApplicationState* GApplicationState;
 
 /** Event handlers */
 static bool8 ApplicationOnEvent(uint16 Code, void* Sender, void* ListenerList, FCoreEventContext Context);
@@ -31,17 +55,25 @@ static bool8 ApplicationOnResized(uint16 Code, void* Sender, void* ListenerList,
 
 LUMORA_C_API bool8 ApplicationCreate(struct FGame* GameInstance)
 {
-    if (bInitialized)
+    if (GameInstance->ApplicationState)
     {
         LUMORA_ERROR("ApplicationCreate called more then once.");
         return FALSE;
     }
 
-    GApplicationState.GameInstance = GameInstance;
+    GApplicationState = HAllocate(sizeof(FApplicationState), MEMORY_TAG_APPLICATION);
+    GApplicationState->GameInstance = GameInstance;
+    GApplicationState->GameInstance->ApplicationState = GApplicationState;
+    GApplicationState->bIsRunning = FALSE;
+    GApplicationState->bIsSuspended = FALSE;
+
+    const size_t SystemsAllocatorTotalSize = 64 * 1024 * 1024; // 64MB
+    CreateLinearAllocator(SystemsAllocatorTotalSize, NULL, &GApplicationState->SystemAllocator);
 
     /** Initialize subsystems. */
-    InitializeMemory();
-    InitializeLogging();
+    INITIALIZE_SUBSYSTEM_BY_ALLOCATOR(InitializeMemory, GApplicationState->MemorySystemMemoryRequirement, GApplicationState->MemorySystemState);
+    INITIALIZE_SUBSYSTEM_BY_ALLOCATOR(InitializeLogging, GApplicationState->LoggingSystemMemoryRequirement, GApplicationState->LoggingSystemState);
+
     InitializeEvent();
     InitializeInput();
 
@@ -51,17 +83,14 @@ LUMORA_C_API bool8 ApplicationCreate(struct FGame* GameInstance)
     RegisterEvent(EVENT_CODE_KEY_RELEASED    , 0, ApplicationOnKey);
     RegisterEvent(EVENT_CODE_RESIZED         , 0, ApplicationOnResized);
 
-    GApplicationState.bIsRunning = TRUE;
-    GApplicationState.bIsSuspended = FALSE;
-
-    FApplicationConfig* Config = &GApplicationState.GameInstance->ApplicationConfig;
-    if (!PlatformStartup(&GApplicationState.PlatformState, Config->ApplicationName, Config->StartPositionX, Config->StartPositionY, Config->StartWidth, Config->StartHeight)) 
+    FApplicationConfig* Config = &GApplicationState->GameInstance->ApplicationConfig;
+    if (!PlatformStartup(&GApplicationState->PlatformState, Config->ApplicationName, Config->StartPositionX, Config->StartPositionY, Config->StartWidth, Config->StartHeight)) 
     {
         return FALSE;
     }
 
     /** Initialize Renderer */
-    const bool8 bRendererInitSucceed = InitializeRenderer(GameInstance->ApplicationConfig.ApplicationName, &GApplicationState.PlatformState);
+    const bool8 bRendererInitSucceed = InitializeRenderer(GameInstance->ApplicationConfig.ApplicationName, &GApplicationState->PlatformState);
     if (!bRendererInitSucceed)
     {
         LUMORA_FATAL("Failed to initialize renderer. Aborting applocation.");
@@ -87,59 +116,61 @@ LUMORA_C_API bool8 ApplicationCreate(struct FGame* GameInstance)
     }
     
     /** Initialize the Game */
-    const bool8 bGameInitSucceed = GApplicationState.GameInstance->InitializeFunc(GApplicationState.GameInstance);
+    const bool8 bGameInitSucceed = GApplicationState->GameInstance->InitializeFunc(GApplicationState->GameInstance);
     if (!bGameInitSucceed)
     {
         LUMORA_FATAL("Game failed to initialize.");
         return FALSE;
     }
 
-    GApplicationState.GameInstance->OnResizeFunc(GApplicationState.GameInstance, GApplicationState.Width, GApplicationState.Height);
-    bInitialized = TRUE;
+    GApplicationState->GameInstance->OnResizeFunc(GApplicationState->GameInstance, GApplicationState->Width, GApplicationState->Height);
+    //bInitialized = TRUE;
 
     return TRUE;
 }
 
 LUMORA_C_API bool8 ApplocationLoop()
 {
+    GApplicationState->bIsRunning = TRUE;
+
     LUMORA_INFO(HGetMemoryUseageStr());
 
-    StartClock(&GApplicationState.Clock);
-    UpdateClock(&GApplicationState.Clock);
-    GApplicationState.LastTime = GApplicationState.Clock.ElapsedTime;
+    StartClock(&GApplicationState->Clock);
+    UpdateClock(&GApplicationState->Clock);
+    GApplicationState->LastTime = GApplicationState->Clock.ElapsedTime;
 
     float64 RunningTime = 0;
     uint8 FrameCount = 0;
     float64 TargetFrameSeconds = 1.0f / 60;
 
-    while (GApplicationState.bIsRunning)
+    while (GApplicationState->bIsRunning)
     {
-        if (!PlatformPumpMessage(&GApplicationState.PlatformState))
+        if (!PlatformPumpMessage(&GApplicationState->PlatformState))
         {
-            GApplicationState.bIsRunning = FALSE;
+            GApplicationState->bIsRunning = FALSE;
         }
 
-        if (!GApplicationState.bIsSuspended)
+        if (!GApplicationState->bIsSuspended)
         {
             /** Update clock and get delta time. */
-            UpdateClock(&GApplicationState.Clock);
-            float64 CurTime = GApplicationState.Clock.ElapsedTime;
-            float64 DeltaTime = (CurTime - GApplicationState.LastTime);
+            UpdateClock(&GApplicationState->Clock);
+            float64 CurTime = GApplicationState->Clock.ElapsedTime;
+            float64 DeltaTime = (CurTime - GApplicationState->LastTime);
             float64 FrameStartTime = PlatformGetAbsoluteTime();
             
-            const bool8 bUpdateSucceed = GApplicationState.GameInstance->UpdateFunc(GApplicationState.GameInstance, (float32)DeltaTime);
+            const bool8 bUpdateSucceed = GApplicationState->GameInstance->UpdateFunc(GApplicationState->GameInstance, (float32)DeltaTime);
             if (!bUpdateSucceed)
             {
                 LUMORA_FATAL("Game update failed, shutting down.");
-                GApplicationState.bIsRunning = FALSE;
+                GApplicationState->bIsRunning = FALSE;
                 break;
             }
 
-            const bool8 bRenderSucceed = GApplicationState.GameInstance->RenderFunc(GApplicationState.GameInstance, (float32)DeltaTime);
+            const bool8 bRenderSucceed = GApplicationState->GameInstance->RenderFunc(GApplicationState->GameInstance, (float32)DeltaTime);
             if (!bRenderSucceed)
             {
                 LUMORA_FATAL("Game render failed, shutting down.");
-                GApplicationState.bIsRunning = FALSE;
+                GApplicationState->bIsRunning = FALSE;
                 break;
             }
 
@@ -177,16 +208,16 @@ LUMORA_C_API bool8 ApplocationLoop()
             UpdateInput(0);
 
             /** Update last time */
-            GApplicationState.LastTime = CurTime;
+            GApplicationState->LastTime = CurTime;
         }
     }
 
-    GApplicationState.bIsRunning = FALSE;
+    GApplicationState->bIsRunning = FALSE;
     
     /** Release the game. */
-    if (GApplicationState.GameInstance->ReleaseFunc)
+    if (GApplicationState->GameInstance->ReleaseFunc)
     {
-        GApplicationState.GameInstance->ReleaseFunc(GApplicationState.GameInstance);
+        GApplicationState->GameInstance->ReleaseFunc(GApplicationState->GameInstance);
     }
 
     /** Unregister events. */
@@ -194,20 +225,24 @@ LUMORA_C_API bool8 ApplocationLoop()
     UnregisterEvent(EVENT_CODE_KEY_PRESSED     , 0, ApplicationOnKey);
     UnregisterEvent(EVENT_CODE_KEY_RELEASED    , 0, ApplicationOnKey);
 
-    PlatformShutdown(&GApplicationState.PlatformState);
+    PlatformShutdown(&GApplicationState->PlatformState);
     ShutdownLogging();
     ReleaseEvent();
     ReleaseInput();
-    ReleaseMemory();
     ReleaseRenderer();
-    
+    ReleaseMemory(GApplicationState->MemorySystemState);
+
+    ReleaseLinearAllocator(&GApplicationState->SystemAllocator);
+
+    HFree(GApplicationState, sizeof(FApplicationState), MEMORY_TAG_APPLICATION);
+
     return TRUE;
 }
 
 void ApplicationGetFrameBufferSize(uint32* Width, uint32* Height)
 {
-    *Width  = GApplicationState.Width;
-    *Height = GApplicationState.Height;
+    *Width  = GApplicationState->Width;
+    *Height = GApplicationState->Height;
 }
 
 bool8 ApplicationOnEvent(uint16 Code, void* Sender, void* ListenerList, FCoreEventContext Context)
@@ -220,7 +255,7 @@ bool8 ApplicationOnEvent(uint16 Code, void* Sender, void* ListenerList, FCoreEve
     {
     case EVENT_CODE_APPLICATION_QUIT:
         LUMORA_INFO("EVENT_CODE_APPLICATION_QUIT received, shutting down.");
-        GApplicationState.bIsRunning = FALSE;
+        GApplicationState->bIsRunning = FALSE;
         return TRUE;
     }
 
@@ -246,29 +281,21 @@ bool8 ApplicationOnKey(uint16 Code, void* Sender, void* ListenerList, FCoreEvent
             /** Block anything else from processing this. */
             return TRUE;
         }
-        else if (KeyCode == KEY_A)
-        {
-            /** Example on checking for a key */
-            LUMORA_DEBUG("Explicit - A key pressed.");
-        } 
+        //else if (KeyCode == KEY_A)
+        //{
+        //    /** Example on checking for a key */
+        //    LUMORA_DEBUG("Explicit - A key pressed.");
+        //} 
         else 
         {
-            LUMORA_DEBUG("'%c' key pressed in window.", KeyCode);
+            LUMORA_DEBUG("'%s' key pressed in window.", GetKeyName(KeyCode));
         }
     }
         break;
     case EVENT_CODE_KEY_RELEASED:
     {
         uint16 KeyCode = Context.Data.U16[0];
-        if (KeyCode == KEY_B)
-        {
-            /** Example on checking for a key */
-            LUMORA_DEBUG("Explicit - B key pressed.");
-        }
-        else
-        {
-            LUMORA_DEBUG("'%c' key released in window.", KeyCode);
-        }
+        LUMORA_DEBUG("'%s' key released in window.", GetKeyName(KeyCode));
     }
         break;
     }
@@ -284,12 +311,12 @@ bool8 ApplicationOnResized(uint16 Code, void* Sender, void* ListenerList, FCoreE
     uint16 Height = Context.Data.U16[1];
 
     /** Check if different. If so, trigger a resize event. */
-    const bool8 bIsResizedWidth  = Width  != GApplicationState.Width;
-    const bool8 bIsResizedHeight = Height != GApplicationState.Height;
+    const bool8 bIsResizedWidth  = Width  != GApplicationState->Width;
+    const bool8 bIsResizedHeight = Height != GApplicationState->Height;
     if (bIsResizedWidth || bIsResizedHeight)
     {
-        GApplicationState.Width = Width;
-        GApplicationState.Height = Height;
+        GApplicationState->Width = Width;
+        GApplicationState->Height = Height;
 
         LUMORA_DEBUG("Window resize: (%i, %i)", Width, Height);
 
@@ -297,20 +324,20 @@ bool8 ApplicationOnResized(uint16 Code, void* Sender, void* ListenerList, FCoreE
         if (bIsHandleMinimization)
         {
             LUMORA_INFO("Window minimized. suspending application.");
-            GApplicationState.bIsSuspended = TRUE;
+            GApplicationState->bIsSuspended = TRUE;
             return TRUE;
         }
         else
         {
-            if (GApplicationState.bIsSuspended)
+            if (GApplicationState->bIsSuspended)
             {
                 LUMORA_INFO("Window restored, resuming application.");
-                GApplicationState.bIsSuspended = FALSE;
+                GApplicationState->bIsSuspended = FALSE;
             }
 
-            if (GApplicationState.GameInstance->OnResizeFunc)
+            if (GApplicationState->GameInstance->OnResizeFunc)
             {
-                GApplicationState.GameInstance->OnResizeFunc(GApplicationState.GameInstance, Width, Height);
+                GApplicationState->GameInstance->OnResizeFunc(GApplicationState->GameInstance, Width, Height);
             }
 
             RendererOnResize(Width, Height);

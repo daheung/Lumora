@@ -357,6 +357,12 @@ LRESULT CALLBACK Win32ProcessMessage(HWND Hwnd, UINT Message, WPARAM wParam, LPA
     return DefWindowProcA(Hwnd, Message, wParam, lParam);
 }
 
+#define KEY_SET_CONDITIONAL(KeyVar, KeyCode, LumoraKeyCode) \
+if (GetKeyState(KeyCode) & 0x8000)              \
+{                                               \
+    KeyVar = LumoraKeyCode;                     \
+}
+
 /**
  * NOTE: Input Handling Strategy
  *
@@ -391,10 +397,11 @@ static FORCEINLINE void ProcessKeyInputImpl(HWND Hwnd, UINT Message, WPARAM wPar
 
     /** Key pressed/released */
     bool8 bPressed = (Message == WM_KEYDOWN || Message == WM_SYSKEYDOWN);
-    EKeys Key = (uint16)wParam;
+    uint32 ScanCode = (lParam >> 16) & 0xFF;
+    uint32 KeyCode = MapVirtualKey(ScanCode, MAPVK_VSC_TO_VK_EX);
 
     /** Pass to the input subsystem for processing. */
-    ProcessInputKey(Key, bPressed);
+    ProcessInputKey(KeyCode, bPressed);
 }
 
 #endif

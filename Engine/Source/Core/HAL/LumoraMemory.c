@@ -9,31 +9,74 @@
 #include <string.h>
 #include <stdio.h>
 
+static const char* GMemoryTagStrings[MEMORY_TAG_MAX_TAGS] =
+{
+    "UNKNOWN          ",
+    "ARRAY            ",
+    "LINEAR_ALLOCATOR ",
+    "DYNAMIC_ARRAY    ",
+    "DICT             ",
+    "RING_QUEUE       ",
+    "BST              ",
+    "STRING           ",
+    "APPLICATION      ",
+    "JOB              ",
+    "TEXTURE          ",
+    "MATERIAL_INSTANCE",
+    "RENDERER         ",
+    "GAME             ",
+    "TRANSFORM        ",
+    "ENTITY           ",
+    "ENTITY_NODE      ",
+    "SCENE            ",
+};
+
 typedef struct FMemoryStats
 {
     uint64 TotalAllocated;
     uint64 TaggedAllocations[MEMORY_TAG_MAX_TAGS];
 } FMemoryStats;
 
-static struct FMemoryStats GMemoryStats;
-
-void InitializeMemory(void)
+typedef struct FMemorySystemState
 {
-    PlatformZeroMemory(&GMemoryStats, sizeof(FMemoryStats));
+    FMemoryStats GMemoryStats;
+    size_t AllocationCount;
+} FMemorySystemState;
+
+static FMemorySystemState* GMemorySystemState;
+
+bool8 InitializeMemory(size_t* const MemoryRequirement, void* State)
+{
+    *MemoryRequirement = sizeof(FMemorySystemState);
+    if (State == NULL)
+    {
+        return TRUE;
+    }
+
+    GMemorySystemState = State;
+    GMemorySystemState->AllocationCount = 0;
+    PlatformZeroMemory(&GMemorySystemState->GMemoryStats, sizeof(FMemoryStats));
+
+    return TRUE;
 }
 
-void ReleaseMemory(void)
+void ReleaseMemory(void* State)
 {
+    GMemorySystemState = NULL;
     // PlatformFree(&GMemoryStats, FALSE);
 }
 
 LUMORA_C_API void* HAllocate(uint64 AllocSize, EMemoryTag MemoryTag)
 {
     LUMORA_LOG(MemoryTag != MEMORY_TAG_UNKNOWN , LOG_LEVEL_WARN, "HAllocate called using MEMORY_TAG_UNKNOWN. Re-class this allocation.");
-    LUMORA_LOG(MemoryTag != MEMORY_TAG_MAX_TAGS, LOG_LEVEL_FATAL, "Invalid MemoryTag Param");
+    LUMORA_CHECK(MemoryTag != MEMORY_TAG_MAX_TAGS, "Invalid MemoryTag Param");
 
-    GMemoryStats.TotalAllocated += AllocSize;
-    GMemoryStats.TaggedAllocations[MemoryTag] += AllocSize;
+    if (GMemorySystemState)
+    {
+        GMemorySystemState->GMemoryStats.TotalAllocated += AllocSize;
+        GMemorySystemState->GMemoryStats.TaggedAllocations[MemoryTag] += AllocSize;
+        GMemorySystemState->AllocationCount++;
+    }
 
     /** TODO: Memory Alignment */
     void* Block = PlatformAllocate(AllocSize, FALSE);
@@ -47,10 +90,10 @@ LUMORA_C_API void HFree(void* Block, uint64 AllocSize, EMemoryTag MemoryTag)
     LUMORA_LOG(MemoryTag != MEMORY_TAG_UNKNOWN, LOG_LEVEL_WARN, "HAllocate called using MEMORY_TAG_UNKNOWN. Re-class this allocation.");
     LUMORA_LOG(MemoryTag != MEMORY_TAG_MAX_TAGS, LOG_LEVEL_FATAL, "Invalid MemoryTag Param");
 
-    GMemoryStats.TotalAllocated -= AllocSize;
-    GMemoryStats.TaggedAllocations[MemoryTag] -= AllocSize;
+    GMemorySystemState->GMemoryStats.TotalAllocated -= AllocSize;
+    GMemorySystemState->GMemoryStats.TaggedAllocations[MemoryTag] -= AllocSize;
 
-    LUMORA_ASSERT_MSG(GMemoryStats.TotalAllocated >= 0, "TotalAllocated must not be less than 0.");
+    LUMORA_ASSERT_MSG(GMemorySystemState->GMemoryStats.TotalAllocated >= 0, "TotalAllocated must not be less than 0.");
 
     /** TODO: Memory Alignment */
     PlatformFree(Block, FALSE);
@@ -85,25 +128,25 @@ LUMORA_C_API char* HGetMemoryUseageStr()
         char Unit[4] = "_iB";
         float32 Amount = 10.f;
 
-        if (GMemoryStats.TaggedAllocations[TagIndex] >= Gib)
+        if (GMemorySystemState->GMemoryStats.TaggedAllocations[TagIndex] >= Gib)
         {
             Unit[0] = 'G';
-            Amount = GMemoryStats.TaggedAllocations[TagIndex] / (float32)Gib;
+            Amount = GMemorySystemState->GMemoryStats.TaggedAllocations[TagIndex] / (float32)Gib;
         } 
-        else if (GMemoryStats.TaggedAllocations[TagIndex] >= Mib)
+        else if (GMemorySystemState->GMemoryStats.TaggedAllocations[TagIndex] >= Mib)
         {
             Unit[0] = 'M';
-            Amount = GMemoryStats.TaggedAllocations[TagIndex] / (float32)Mib;
+            Amount = GMemorySystemState->GMemoryStats.TaggedAllocations[TagIndex] / (float32)Mib;
         }
-        else if (GMemoryStats.TaggedAllocations[TagIndex] >= Mib)
+        else if (GMemorySystemState->GMemoryStats.TaggedAllocations[TagIndex] >= Mib)
         {
             Unit[0] = 'K';
-            Amount = GMemoryStats.TaggedAllocations[TagIndex] / (float32)Kib;
+            Amount = GMemorySystemState->GMemoryStats.TaggedAllocations[TagIndex] / (float32)Kib;
         } 
         else
         {
             HCopyMemory(Unit, "B\0", sizeof("B\0"));
-            Amount = (float32)GMemoryStats.TaggedAllocations[TagIndex];
+            Amount = (float32)GMemorySystemState->GMemoryStats.TaggedAllocations[TagIndex];
         }
 
         int32 Length = snprintf(Buffer + Offset, 1024, "  %s: %.2f%s\n", GMemoryTagStrings[TagIndex], Amount, Unit);
@@ -112,4 +155,14 @@ LUMORA_C_API char* HGetMemoryUseageStr()
 
     char* OutString = Strdup(Buffer);
     return OutString;
+}
+
+LUMORA_C_API size_t GetMemoryAllocationCount()
+{
+    if (GMemorySystemState)
+    {
+        return GMemorySystemState->AllocationCount;
+    }
+
+    return (size_t)0;
 }

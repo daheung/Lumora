@@ -8,13 +8,25 @@
 #include <stdarg.h>
 #include <stdlib.h>
 
-void ReportAssertionFailure(const char* Expression, const char* Message, const char* File, int32 Line)
+typedef struct FLoggerSystemState
 {
-    LogOutput(LOG_LEVEL_FATAL, "Assertion failure: %s, Message: %s, File: %s, Line: %d\n", Expression, Message, File, Line);
-}
+    bool8 bInitialized;
 
-bool8 InitializeLogging()
+} FLoggerSystemState;
+
+static FLoggerSystemState* GLoggerState;
+
+bool8 InitializeLogging(size_t* const MemoryRequirement, void* State)
 {
+    *MemoryRequirement = sizeof(FLoggerSystemState);
+    if (GLoggerState == NULL)
+    {
+        return TRUE;
+    }
+
+    GLoggerState = State;
+    GLoggerState->bInitialized = TRUE;
+
     /** TODO: Create log file. */
 
     return TRUE;
@@ -22,7 +34,25 @@ bool8 InitializeLogging()
 
 void ShutdownLogging()
 {
+    GLoggerState = NULL;
     /** TODO: Cleanup logging/write queued entries.*/
+}
+
+void ReportAssertionFailure(const char* Expression, const char* Message, const char* File, int32 Line)
+{
+    LogOutput(LOG_LEVEL_FATAL, "Assertion failure: %s, Message: %s, File: %s, Line: %d\n", Expression, Message, File, Line);
+}
+
+LUMORA_C_API void ReportAssertionFailureFmt(const char* Expression, const char* Message, const char* File, int32 Line, ...)
+{
+    char FormattedMessage[4096];
+
+    va_list Args;
+    va_start(Args, Line);
+    GetVarArgs(FormattedMessage, sizeof(FormattedMessage), Message, Args);
+    va_end(Args);
+
+    LogOutput(LOG_LEVEL_FATAL, "Assertion failure: %s, Message: %s, File: %s, Line: %d", Expression, FormattedMessage, File, Line);
 }
 
 void LogOutput(ELogLevel LogLevel, const char* Message, ...)

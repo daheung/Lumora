@@ -89,7 +89,7 @@ LUMORA_C_API bool8 PlatformStartup(FPlatformState* PlatformState, const char* Ap
     InternalState->Window = xcb_generate_id(InternalState->Connection);
 
     /**
-     * Registter event types.
+     * Register event types.
      * XCB_CW_BACK_PIXEL = filling then window bg with a single colour
      * XCB_CW_EVENT_MASK is required.
      */
@@ -154,19 +154,19 @@ LUMORA_C_API bool8 PlatformStartup(FPlatformState* PlatformState, const char* Ap
         wmDeleteCookie, 
         NULL
     );
-    xcb_intern_atom_reply_t* wmProcotolsReplay = xcb_intern_atom_reply(
+    xcb_intern_atom_reply_t* wmProtocolsReplay = xcb_intern_atom_reply(
         InternalState->Connection,
         wmProtocolsCookie,
         NULL
     );
     InternalState->wmDeleteWindow = wmDeleteReplay->atom;
-    InternalState->wmProtocols = wmProcotolsReplay->atom;
+    InternalState->wmProtocols = wmProtocolsReplay->atom;
 
     xcb_change_property(
         InternalState->Connection,
         XCB_PROP_MODE_REPLACE,
         InternalState->Window,
-        wmProcotolsReplay->atom,
+        wmProtocolsReplay->atom,
         4,
         32,
         1,
@@ -179,7 +179,7 @@ LUMORA_C_API bool8 PlatformStartup(FPlatformState* PlatformState, const char* Ap
     int32 StreamResult = xcb_flush(InternalState->Connection);
     if (StreamResult <= 0)
     {
-        LUMORA_FATAL("An error occurred when flusing the stream: %d", StreamResult);
+        LUMORA_FATAL("An error occurred when flushing the stream: %d", StreamResult);
         return FALSE;
     }
 
@@ -230,7 +230,7 @@ LUMORA_C_API bool8 PlatformPumpMessage(FPlatformState* PlatformState)
             KeySym KeySystem = XkbKeycodeToKeysym(InternalState->Display, (KeyCode)Code, 0, Code & ShiftMask ? 1 : 0);
             EKeys Key = TranslateKeyCode(KeySystem);
 
-            /** Pass to the input subsysteem for processing. */
+            /** Pass to the input subsystem for processing. */
             ProcessInputKey(Key, bPressed);
         }
             break;
@@ -391,7 +391,7 @@ void PlatformGetRequiredExtensionNames(const char*** CArrayNames)
     CArrayPush(*CArrayNames, &LinuxSurface);    // VK_KHR_xlib_surface?
 }
 
-/** Surface createion for Vulkan. */
+/** Surface creation for Vulkan. */
 bool8 PlatformCreateVulkanSurface(struct FPlatformState* PlatformState, struct FVulkanContext* VulkanContext)
 {
     /** Simply cold-cast to the known type. */
@@ -420,7 +420,7 @@ bool8 PlatformCreateVulkanSurface(struct FPlatformState* PlatformState, struct F
 #define KEY_RETURN(XCBCode, LumoraCode) case XCBCode: return LumoraCode
 #define KEYS_RETURN(XCBCode1, XCBCode2, LumoraCode) case XCBCode1: case XCBCode2: return LumoraCode
 
-/** Key translateion */
+/** Key translation */
 FORCEINLINE EKeys TranslateKeyCode(uint32 xKeyCode)
 {
     switch (xKeyCode)
@@ -493,6 +493,8 @@ FORCEINLINE EKeys TranslateKeyCode(uint32 xKeyCode)
 	KEY_RETURN(XK_Shift_R  , KEY_RSHIFT);
 	KEY_RETURN(XK_Control_L, KEY_LCONTROL);
 	KEY_RETURN(XK_Control_R, KEY_RCONTROL);
+    KEY_RETURN(XK_Alt_L, KEY_LALT);
+    KEY_RETURN(XK_Alt_R, KEY_RALT);
 
 	KEY_RETURN(XK_0, KEY_NUMPAD_ZERO);
 	KEY_RETURN(XK_1, KEY_NUMPAD_ONE);
