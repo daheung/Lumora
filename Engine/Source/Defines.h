@@ -133,6 +133,15 @@ STATIC_ASSERT(sizeof(float64) == 8, "Expected float64 to be 8 bytes");
 #define LUMORA_CPP_API LUMORA_API
 
 /** Function type macros. */
+#ifndef CDECL
+    #define CDECL
+#endif
+#ifndef STDCALL
+    #define STDCALL
+#endif
+#ifndef FASTCALL
+    #define FASTCALL
+#endif
 #ifndef NORETURN
     #define NORETURN
 #endif
