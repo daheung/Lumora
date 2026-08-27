@@ -122,17 +122,17 @@ typedef enum EKeys
     KEY(F23 , 0x86),
     KEY(F24 , 0x87),
 
-    KEY(NUMLOCK, 0x6A),
-    KEY(SCROLL, 0x6A),
+    KEY(NUMLOCK, 0x90),
+    KEY(SCROLL, 0x91),
 
-    KEY(NUMPAD_EQUAL, 0x6A),
+    KEY(NUMPAD_EQUAL, 0x92),
 
-    KEY(LSHIFT, 0x6A),
-    KEY(RSHIFT, 0x6A),
-    KEY(LCONTROL, 0x6A),
-    KEY(RCONTROL, 0x6A),
-    KEY(LMENU, 0x6A),
-    KEY(RMENU, 0x6A),
+    KEY(LSHIFT, 0xA0),
+    KEY(RSHIFT, 0xA1),
+    KEY(LCONTROL, 0xA2),
+    KEY(RCONTROL, 0xA3),
+    KEY(LALT, 0xA4),
+    KEY(RALT, 0xA5),
 
     KEYS_MAX_KEYS,
 } EKeys;
@@ -167,3 +167,5 @@ LUMORA_C_API void GetPrevInputMousePosition(int32* X, int32* Y);
 void ProcessInputButton(EButtons Button, bool8 bPressed);
 void ProcessInputMouseMove(int16 X, int16 Y);
 void ProcessInputMouseWheel(int8 DeltaZ);
+
+LUMORA_C_API const char* GetKeyName(EKeys Key);
