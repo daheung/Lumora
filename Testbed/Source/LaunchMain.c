@@ -1,6 +1,6 @@
 #include "Game.h"
 
-#include <LaunchMain.h>
+#include "EntryPoint.h"
 
 /** TODO: Remove this */
 #include "Core/HAL/LumoraMemory.h"
@@ -8,6 +8,8 @@
 /** Define the function to create a game. */
 bool8 CreateGame(FGame* OutGame)
 {
+    HZeroMemory(OutGame, sizeof(FGame));
+
     /** Application configuration. */
     OutGame->ApplicationConfig.StartPositionX = 100;
     OutGame->ApplicationConfig.StartPositionY = 100;
