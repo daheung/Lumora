@@ -69,3 +69,14 @@ LUMORA_C_API uint64 Strtoui64(const char* Start, char** End, int32 Base);
 LUMORA_C_API char* Strtok(char* TokenString, const char* Delim, char** Context);
 
 LUMORA_C_API int32 GetVarArgs(char* Dest, size_t DestSize, const char* Fmt, va_list ArgPtr);
+
+/** Performs string formatting to dest given format string and parameters. */
+LUMORA_C_API int32 FormatString(char* Dest, size_t DestSize, const char* Fmt, ...);
+
+/** Performs variadic formatting to dest given format string and va_list.
+ * @param Dest The destination for the formatted string.
+ * @param Format The string to be formatted.
+ * @param ArgPtr The variadic argument list.
+ * @returns The size of the data written.
+ */
+LUMORA_C_API int32 StringFormatV(char* Dest, size_t DestSize, const char* Format, va_list ArgPtr);

@@ -380,3 +380,23 @@ LUMORA_C_API int32 GetVarArgs(char* Dest, size_t DestSize, const char* Fmt, va_l
     int32 Result = vsnprintf(Dest, DestSize, Fmt, ArgPtr);
     return Result;
 }
+
+LUMORA_C_API int32 FormatString(char* Dest, size_t DestSize, const char* Fmt, ...)
+{
+    if (!Dest)
+    {
+        return -1;
+    }
+
+    va_list ArgPtr;
+    va_start(ArgPtr, Fmt);
+    const int32 Result = StringFormatV(Dest, DestSize, Fmt, ArgPtr);
+    va_end(ArgPtr);
+
+    return Result;
+}
+
+LUMORA_C_API int32 StringFormatV(char* Dest, size_t DestSize, const char* Format, va_list ArgPtr)
+{
+    return GetVarArgs(Dest, DestSize, Format, ArgPtr);
+}
