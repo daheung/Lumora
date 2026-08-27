@@ -12,10 +12,10 @@ typedef struct FClock
  * Updates the provided Clock. Should be called just before checking elapsed time.
  * Has no effect on non-started clocks.
  */
-void UpdateClock(FClock* Clock);
+LUMORA_C_API void UpdateClock(FClock* Clock);
 
 /** Starts the provided clock. Resets elapsed time. */
-void StartClock(FClock* Clock);
+LUMORA_C_API void StartClock(FClock* Clock);
 
 /** Stops the provided clock. Does not reset elapsed time. */
-void StopClock(FClock* Clock);
+LUMORA_C_API void StopClock(FClock* Clock);

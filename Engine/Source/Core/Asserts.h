@@ -6,6 +6,7 @@
 #define LUMORA_ASSERTIONS_ENABLED
 
 LUMORA_C_API void ReportAssertionFailure(const char* Expression, const char* Message, const char* File, int32 Line);
+LUMORA_C_API void ReportAssertionFailureFmt(const char* Expression, const char* Message, const char* File, int32 Line, ...);
 
 #if defined(_MSC_VER)
     #include <intrin.h>
@@ -16,14 +17,24 @@ LUMORA_C_API void ReportAssertionFailure(const char* Expression, const char* Mes
     // over call instructions. This can hide legitimate reasons to trap. Asserts
     // for example, which can appear as if the did not fire, leaving a programmer
     // unknowingly debugging an undefined process.
-    // Referected to: Unreal Engine's PLATFORM_BREAK macro.
-    #define DEBUG_BREAK() (__nop(), __debugbreak())
+    // Referenced to: Unreal Engine's PLATFORM_BREAK macro.
 #elif defined(__clang__) && __has_builtin(__builtin_debugtrap)
+    #define DEBUG_BREAK() (__nop(), __debugbreak())
     #define DEBUG_BREAK() __builtin_debugtrap()
 #elif defined(__GNUC__) || defined(__clang__)
-    #include <csignal>
+    #include <signal.h>
     #define DEBUG_BREAK() raise(SIGTRAP)
 #endif
+
+#define LUMORA_CHECK(Expression, Message, ...)                                                     \
+    do                                                                                             \
+    {                                                                                              \
+        if (!(Expression))                                                                         \
+        {                                                                                          \
+            ReportAssertionFailureFmt(#Expression, Message, __FILE__, __LINE__, ##__VA_ARGS__);    \
+            DEBUG_BREAK();                                                                         \
+        }                                                                                          \
+    } while (0)
 
 #ifdef LUMORA_ASSERTIONS_ENABLED
 #define LUMORA_ASSERT(Expression)                                               \
