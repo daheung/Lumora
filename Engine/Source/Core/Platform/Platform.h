@@ -2,14 +2,15 @@
 
 #include "Defines.h"
 
-typedef struct FPlatformState{
-    void* InternalState;
-} FPlatformState;
+//typedef struct FPlatformState{
+//    void* InternalState;
+//} FPlatformState;
 
-bool8 PlatformStartup(FPlatformState* PlatformState, const char* ApplicationName, int32 X, int32 Y, int32 Width, int32 Height);
-void PlatformShutdown(FPlatformState* PlatformState);
+bool8 PlatformStartup(size_t* MemoryRequirement, void* State, const char* ApplicationName, int32 X, int32 Y, int32 Width, int32 Height);
 
-bool8 PlatformPumpMessage(FPlatformState* PlatformState);
+void PlatformShutdown(void* State);
+
+bool8 PlatformPumpMessage();
 
 void* PlatformAllocate(uint64 AllocSize, bool8 bAligned);
 void  PlatformFree(void* Block, bool8 bAligned);

@@ -18,11 +18,11 @@ LUMORA_C_API void ReportAssertionFailureFmt(const char* Expression, const char* 
     // for example, which can appear as if the did not fire, leaving a programmer
     // unknowingly debugging an undefined process.
     // Referenced to: Unreal Engine's PLATFORM_BREAK macro.
-#elif defined(__clang__) && __has_builtin(__builtin_debugtrap)
     #define DEBUG_BREAK() (__nop(), __debugbreak())
+#elif defined(__clang__) && __has_builtin(__builtin_debugtrap)
     #define DEBUG_BREAK() __builtin_debugtrap()
 #elif defined(__GNUC__) || defined(__clang__)
-    #include <signal.h>
+    #include <csignal>
     #define DEBUG_BREAK() raise(SIGTRAP)
 #endif
 

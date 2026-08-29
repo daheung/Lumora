@@ -1,7 +1,8 @@
 #include "Logger.h"
 #include "Asserts.h"
 #include "Platform/Platform.h"
-#include "Core/Misc//CString.h"
+#include "Core/Misc/CString.h"
+#include "Core/Misc/FileSystem.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -10,11 +11,24 @@
 
 typedef struct FLoggerSystemState
 {
-    bool8 bInitialized;
-
+    FFileHandle LogFileHandle;
 } FLoggerSystemState;
 
 static FLoggerSystemState* GLoggerState;
+
+static FORCEINLINE void AppendToLogFile(const char* Message)
+{
+    if (GLoggerState && GLoggerState->LogFileHandle.bIsValid)
+    {
+        /** Since the message already contains a '\n', just write the bytes directly. */
+        size_t Length = Strlen(Message);
+        size_t Written = 0;
+        if (!FileSystemWrite(&GLoggerState->LogFileHandle, Length, Message, &Written))
+        {
+            PlatformConsoleWriteError("ERROR: Writing to console.log", LOG_LEVEL_ERROR);
+        }
+    }
+}
 
 bool8 InitializeLogging(size_t* const MemoryRequirement, void* State)
 {
@@ -25,10 +39,15 @@ bool8 InitializeLogging(size_t* const MemoryRequirement, void* State)
     }
 
     GLoggerState = State;
-    GLoggerState->bInitialized = TRUE;
+
+    /** Create new/wipe existing log file, then open it, */
+    if (!FileSystemOpen("console.log", FILE_MODE_WRITE, FALSE, &GLoggerState->LogFileHandle))
+    {
+        PlatformConsoleWriteError("ERROR: Unable to open console.log for writing.", LOG_LEVEL_ERROR);
+        return FALSE;
+    }
 
     /** TODO: Create log file. */
-
     return TRUE;
 }
 
@@ -57,6 +76,11 @@ LUMORA_C_API void ReportAssertionFailureFmt(const char* Expression, const char* 
 
 void LogOutput(ELogLevel LogLevel, const char* Message, ...)
 {
+    /**
+     * TODO: These string operations are all pretty slow. This needs to be 
+     * moved to another thread eventually, along with the file writes, to
+     * avoid slowing things down while the engine is trying to run.
+     */
     const char* LogLevelStrings[6] = { "[FATAL]: ", "[ERROR]: ", "[WARN]: ", "[INFO]: ", "[DEBUG]: ", "[TRACE]: " };
     const bool8 bIsError =
         LogLevel == LOG_LEVEL_FATAL ||
@@ -66,9 +90,9 @@ void LogOutput(ELogLevel LogLevel, const char* Message, ...)
      * Technically imposes a 64k character limit on a single log entry, but ...
      * DON't DO THAT!
      */
-    char OutMessage[65536];
-    memset(OutMessage, 0, sizeof(OutMessage));
+    char OutMessage[65536] = { 0 };
 
+    const int32 Offset = FormatString(OutMessage, sizeof(OutMessage), "%s", LogLevelStrings[LogLevel]);
     /** 
      * Format original message.
      * NOTE: Oddly enough, MS's headers override the GCC/Clang va_list type with a "typedef char* va_list" in some
@@ -77,21 +101,28 @@ void LogOutput(ELogLevel LogLevel, const char* Message, ...)
      */
     va_list Args;
     va_start(Args, Message);
-    GetVarArgs(OutMessage, sizeof(OutMessage), Message, Args);
+    StringFormatV(OutMessage + Offset, sizeof(OutMessage) - Offset, Message, Args);
     va_end(Args);
 
-    char OutMessage2[65536];
-    sprintf(OutMessage2, "%s%s\n", LogLevelStrings[LogLevel], OutMessage);
+    size_t Length = Strlen(OutMessage);
+    if (Length + 1 < sizeof(OutMessage))
+    {
+        OutMessage[Length] = '\n';
+        OutMessage[Length + 1] = '\0';
+    }
 
     /** platform-specific output. */
     // printf("%s", OutMessage2);
     if (bIsError)
     {
-        PlatformConsoleWriteError(OutMessage2, LogLevel);
+        PlatformConsoleWriteError(OutMessage, LogLevel);
     } 
     else
     {
-        PlatformConsoleWrite(OutMessage2, LogLevel);
+        PlatformConsoleWrite(OutMessage, LogLevel);
     }
+
+    /** Queue a copy to be written to the log file. */
+    AppendToLogFile(OutMessage);
 }
 

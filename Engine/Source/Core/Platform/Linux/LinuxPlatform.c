@@ -392,7 +392,7 @@ void PlatformGetRequiredExtensionNames(const char*** CArrayNames)
 }
 
 /** Surface creation for Vulkan. */
-bool8 PlatformCreateVulkanSurface(struct FPlatformState* PlatformState, struct FVulkanContext* VulkanContext)
+bool8 PlatformCreateVulkanSurface(struct FVulkanContext* VulkanContext)
 {
     /** Simply cold-cast to the known type. */
     FInternalState* InternalState = (FInternalState*)PlatformState->InternalState;

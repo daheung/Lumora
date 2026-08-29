@@ -27,7 +27,7 @@ typedef enum EMemoryTag
     MEMORY_TAG_MAX_TAGS,
 } EMemoryTag;
 
-LUMORA_C_API bool8 InitializeMemory(size_t* const MemoryRequirement, void* State);
+LUMORA_C_API void InitializeMemory(size_t* const MemoryRequirement, void* State);
 LUMORA_C_API void ReleaseMemory(void* State);
 
 LUMORA_C_API void* HAllocate(uint64 AllocSize, EMemoryTag MemoryTag);

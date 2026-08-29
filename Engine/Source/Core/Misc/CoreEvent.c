@@ -29,22 +29,18 @@ typedef struct FEventSystemState
 /**
  * Event system internal state.
  */
-static bool8 bIsInitialized = FALSE;
-static FEventSystemState GEventSystemState;
+static FEventSystemState* GEventSystemState;
 
 
-bool8 InitializeEvent()
+void InitializeEvent(size_t* const MemoryRequirement, void* State)
 {
-    if (bIsInitialized)
-    {
-        return FALSE;
+    *MemoryRequirement = sizeof(FEventSystemState);
+    if (State == NULL) {
+        return;
     }
 
-    bIsInitialized = FALSE;
-    HZeroMemory(&GEventSystemState, sizeof(FEventSystemState));
-
-    bIsInitialized = TRUE;
-    return bIsInitialized;
+    HZeroMemory(State, sizeof(FEventSystemState));
+    GEventSystemState = State;
 }
 
 void ReleaseEvent()
@@ -52,21 +48,21 @@ void ReleaseEvent()
     /** Free the events array. And objects pointed to should be destroyed on their own. */
     for (uint16 Index = 0; Index < MAX_EVENT_CODE; ++Index)
     {
-        if (GEventSystemState.Registered[Index].Events != 0)
+        if (GEventSystemState->Registered[Index].Events != 0)
         {
-            CArrayRelease(GEventSystemState.Registered[Index].Events);
-            GEventSystemState.Registered[Index].Events = 0;
+            CArrayRelease(GEventSystemState->Registered[Index].Events);
+            GEventSystemState->Registered[Index].Events = 0;
         }
     }
 }
 
 LUMORA_C_API bool8 RegisterEvent(uint16 Code, void *Listener, OnEventFunc OnEvent)
 {
-    LUMORA_LOG(bIsInitialized, LOG_LEVEL_FATAL, "CoreEvent has not been initialized.");
+    LUMORA_LOG(GEventSystemState, LOG_LEVEL_FATAL, "CoreEvent has not been initialized.");
     
-    if (GEventSystemState.Registered[Code].Events == 0)
+    if (GEventSystemState->Registered[Code].Events == 0)
     {
-        GEventSystemState.Registered[Code].Events = CArrayCreate(sizeof(FRegisteredEvent));
+        GEventSystemState->Registered[Code].Events = CArrayCreate(sizeof(FRegisteredEvent));
     }
 
     /**
@@ -74,10 +70,10 @@ LUMORA_C_API bool8 RegisterEvent(uint16 Code, void *Listener, OnEventFunc OnEven
      * Duplicate registrations may leave a stale listener reference if the listener
      *  is unregistered only once and later destroyed.
      */
-    uint32 RegisteredCount = (uint32)CArrayLength(GEventSystemState.Registered[Code].Events);
+    uint32 RegisteredCount = (uint32)CArrayLength(GEventSystemState->Registered[Code].Events);
     for (uint32 Index = 0; Index < RegisteredCount; ++Index)
     {
-        if (GEventSystemState.Registered[Code].Events[Index].Listener == Listener)
+        if (GEventSystemState->Registered[Code].Events[Index].Listener == Listener)
         {
             /** TODO: Warn */
             return FALSE;
@@ -85,34 +81,34 @@ LUMORA_C_API bool8 RegisterEvent(uint16 Code, void *Listener, OnEventFunc OnEven
     }
 
     /** If at this point, no duplicate was found. Proceed with registration. */
-    FRegisteredEvent Event = {};
+    FRegisteredEvent Event = { 0 };
     Event.Listener = Listener;
     Event.Callback = OnEvent;
-    CArrayPush(GEventSystemState.Registered[Code].Events, &Event);
+    CArrayPush(GEventSystemState->Registered[Code].Events, &Event);
 
     return TRUE;
 }
 
 LUMORA_C_API bool8 UnregisterEvent(uint16 Code, void *Listener, OnEventFunc OnEvent)
 {
-    LUMORA_LOG(bIsInitialized, LOG_LEVEL_FATAL, "CoreEvent has not been initialized.");
+    LUMORA_LOG(GEventSystemState, LOG_LEVEL_FATAL, "CoreEvent has not been initialized.");
 
     /** On nothing is registered for the code, boot out. */
-    if (GEventSystemState.Registered[Code].Events == 0)
+    if (GEventSystemState->Registered[Code].Events == 0)
     {
         /** TODO: Warn */
         return FALSE;
     }
 
-    uint32 RegisteredCount = (uint32)CArrayLength(GEventSystemState.Registered[Code].Events);
+    uint32 RegisteredCount = (uint32)CArrayLength(GEventSystemState->Registered[Code].Events);
     for (uint32 Index = 0; Index < RegisteredCount; ++Index)
     {
-        FRegisteredEvent Event = GEventSystemState.Registered[Code].Events[Index];
+        FRegisteredEvent Event = GEventSystemState->Registered[Code].Events[Index];
         if (Event.Listener == Listener && Event.Callback == OnEvent)
         {
             /** Found one, remove it */
             FRegisteredEvent PoppedEvent;
-            CArrayPopAt(GEventSystemState.Registered[Code].Events, Index, &PoppedEvent);
+            CArrayPopAt(GEventSystemState->Registered[Code].Events, Index, &PoppedEvent);
             return TRUE;
         }
     }
@@ -123,18 +119,18 @@ LUMORA_C_API bool8 UnregisterEvent(uint16 Code, void *Listener, OnEventFunc OnEv
 
 LUMORA_C_API bool8 FireEvent(uint16 Code, void *Sender, FCoreEventContext Context)
 {
-    LUMORA_LOG(bIsInitialized, LOG_LEVEL_FATAL, "CoreEvent has not been initialized.");
+    LUMORA_LOG(GEventSystemState, LOG_LEVEL_FATAL, "CoreEvent has not been initialized.");
     
     /** If nothing is registered for the code, boot out. */
-    if (GEventSystemState.Registered[Code].Events == 0)
+    if (GEventSystemState->Registered[Code].Events == 0)
     {
         return FALSE;
     }
 
-    uint32 RegisteredCount = CArrayLength(GEventSystemState.Registered[Code].Events);
+    uint32 RegisteredCount = CArrayLength(GEventSystemState->Registered[Code].Events);
     for (uint32 Index = 0; Index < RegisteredCount; ++Index)
     {
-        FRegisteredEvent Event = GEventSystemState.Registered[Code].Events[Index];
+        FRegisteredEvent Event = GEventSystemState->Registered[Code].Events[Index];
         if (Event.Callback(Code, Sender, Event.Listener, Context))
         {
             /** Message has been handled, do not send to other listeners. */

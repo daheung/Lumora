@@ -25,63 +25,69 @@ typedef struct FInputState
 } FInputState;
 
 /** Internal input state */
-static bool8 bInitialized = FALSE;
-static FInputState GInputState = { 0 };
+static FInputState* GInputState = NULL;
 
-void InitializeInput(void)
+void InitializeInput(size_t* MemoryRequirement, void* State)
 {
-    HZeroMemory(&GInputState, sizeof(FInputState));
-    bInitialized = TRUE;
-    LUMORA_INFO("Input subsytem initialized.");
+    *MemoryRequirement = sizeof(FInputState);
+    if (State == NULL)
+    {
+        return;
+    }
+
+    HZeroMemory(State, sizeof(FInputState));
+    GInputState = State;
 }
 
-void ReleaseInput(void)
+void ReleaseInput(void* State)
 {
+    LUMORA_UNUSED_PARAM(State);
+
     /** TODO: Add release routines when needed. */
-    bInitialized = FALSE;
+    GInputState = NULL;
 }
 
 void UpdateInput(float64 DeltaTime)
 {
-    LUMORA_ASSERT_MSG(bInitialized, "Input subsystem is not initialized.");
+    LUMORA_ASSERT_MSG(GInputState, "Input subsystem is not initialized.");
 
     /** Copy current states to previous states. */
-    HCopyMemory(&GInputState.PrevKeyState, &GInputState.CurKeyState, sizeof(FKeyboardState));
-    HCopyMemory(&GInputState.PrevMouse, &GInputState.CurMouse, sizeof(FMouseState));
+    HCopyMemory(&GInputState->PrevKeyState, &GInputState->CurKeyState, sizeof(FKeyboardState));
+    HCopyMemory(&GInputState->PrevMouse, &GInputState->CurMouse, sizeof(FMouseState));
 }
 
 LUMORA_C_API bool8 IsInputKeyDown(EKeys Key)
 {
-    LUMORA_ASSERT_MSG(bInitialized, "Input subsystem is not initialized.");
-    return GInputState.CurKeyState.Keys[Key] == TRUE;
+    LUMORA_ASSERT_MSG(GInputState, "Input subsystem is not initialized.");
+    return GInputState->CurKeyState.Keys[Key] == TRUE;
 }
 
 LUMORA_C_API bool8 IsInputKeyUp(EKeys Key)
 {
-    LUMORA_ASSERT_MSG(bInitialized, "Input subsystem is not initialized.");
-    return GInputState.CurKeyState.Keys[Key] == FALSE;
+    LUMORA_ASSERT_MSG(GInputState, "Input subsystem is not initialized.");
+    return GInputState->CurKeyState.Keys[Key] == FALSE;
 }
 
 LUMORA_C_API bool8 WasInputKeyDown(EKeys Key)
 {
-    LUMORA_ASSERT_MSG(bInitialized, "Input subsystem is not initialized.");
-    return GInputState.PrevKeyState.Keys[Key] == TRUE;
+    LUMORA_ASSERT_MSG(GInputState, "Input subsystem is not initialized.");
+    return GInputState->PrevKeyState.Keys[Key] == TRUE;
 }
 
 LUMORA_C_API bool8 WasInputKeyUp(EKeys Key)
 {
-    LUMORA_ASSERT_MSG(bInitialized, "Input subsystem is not initialized.");
-    return GInputState.PrevKeyState.Keys[Key] == FALSE;
+    LUMORA_ASSERT_MSG(GInputState, "Input subsystem is not initialized.");
+    return GInputState->PrevKeyState.Keys[Key] == FALSE;
 }
 
 void ProcessInputKey(EKeys Key, bool8 bPressed)
 {
 
     /** Only handle this if the state actually changed. */
-    if (GInputState.CurKeyState.Keys[Key] != bPressed)
+    if (GInputState->CurKeyState.Keys[Key] != bPressed)
     {
         /** Update internal state. */
-        GInputState.CurKeyState.Keys[Key] = bPressed;
+        GInputState->CurKeyState.Keys[Key] = bPressed;
 
         /** Fire off an event for immediate processing. */
         FCoreEventContext EventContext = { 0 };
@@ -95,48 +101,48 @@ void ProcessInputKey(EKeys Key, bool8 bPressed)
 /** Mouse input */
 LUMORA_C_API bool8 IsInputButtonDown(EButtons Button)
 {
-    LUMORA_ASSERT_MSG(bInitialized, "Input subsystem is not initialized.");
-    return GInputState.CurMouse.Buttons[Button] == TRUE;
+    LUMORA_ASSERT_MSG(GInputState, "Input subsystem is not initialized.");
+    return GInputState->CurMouse.Buttons[Button] == TRUE;
 }
 
 LUMORA_C_API bool8 IsInputButtonUp(EButtons Button)
 {
-    LUMORA_ASSERT_MSG(bInitialized, "Input subsystem is not initialized.");
-    return GInputState.CurMouse.Buttons[Button] == FALSE;
+    LUMORA_ASSERT_MSG(GInputState, "Input subsystem is not initialized.");
+    return GInputState->CurMouse.Buttons[Button] == FALSE;
 }
 
 LUMORA_C_API bool8 WasInputButtonDown(EButtons Button)
 {
-    LUMORA_ASSERT_MSG(bInitialized, "Input subsystem is not initialized.");
-    return GInputState.PrevMouse.Buttons[Button] == TRUE;
+    LUMORA_ASSERT_MSG(GInputState, "Input subsystem is not initialized.");
+    return GInputState->PrevMouse.Buttons[Button] == TRUE;
 }
 
 LUMORA_C_API bool8 WasInputButtonUp(EButtons Button)
 {
-    LUMORA_ASSERT_MSG(bInitialized, "Input subsystem is not initialized.");
-    return GInputState.PrevMouse.Buttons[Button] == FALSE;
+    LUMORA_ASSERT_MSG(GInputState, "Input subsystem is not initialized.");
+    return GInputState->PrevMouse.Buttons[Button] == FALSE;
 }
 
 LUMORA_C_API void GetInputMousePosition(int32 *X, int32 *Y)
 {
-    LUMORA_ASSERT_MSG(bInitialized, "Input subsystem is not initialized.");
-    *X = GInputState.CurMouse.X;
-    *Y = GInputState.CurMouse.Y;
+    LUMORA_ASSERT_MSG(GInputState, "Input subsystem is not initialized.");
+    *X = GInputState->CurMouse.X;
+    *Y = GInputState->CurMouse.Y;
 }
 
 LUMORA_C_API void GetPrevInputMousePosition(int32 *X, int32 *Y)
 {
-    LUMORA_ASSERT_MSG(bInitialized, "Input subsystem is not initialized.");
-    *X = GInputState.PrevMouse.X;
-    *Y = GInputState.PrevMouse.Y;
+    LUMORA_ASSERT_MSG(GInputState, "Input subsystem is not initialized.");
+    *X = GInputState->PrevMouse.X;
+    *Y = GInputState->PrevMouse.Y;
 }
 
 void ProcessInputButton(EButtons Button, bool8 bPressed)
 {
     /** If the state changed, fire an event. */ 
-    if (GInputState.CurMouse.Buttons[Button] != bPressed)
+    if (GInputState->CurMouse.Buttons[Button] != bPressed)
     {
-        GInputState.CurMouse.Buttons[Button] = bPressed;
+        GInputState->CurMouse.Buttons[Button] = bPressed;
 
         /** Fire the event. */
         FCoreEventContext EventContext = { 0 };
@@ -150,14 +156,14 @@ void ProcessInputButton(EButtons Button, bool8 bPressed)
 void ProcessInputMouseMove(int16 X, int16 Y)
 {
     /** Only process if actually different */
-    if (GInputState.CurMouse.X != X || GInputState.CurMouse.Y != Y)
+    if (GInputState->CurMouse.X != X || GInputState->CurMouse.Y != Y)
     {
         /** NOTE: Enable this if debugging. */ 
         // LUMORA_DEBUG("Mouse position: (%i, %i)", X, Y);
 
         /** Update internal state. */
-        GInputState.CurMouse.X = X;
-        GInputState.CurMouse.Y = Y;
+        GInputState->CurMouse.X = X;
+        GInputState->CurMouse.Y = Y;
 
         /** Fire the event. */
         FCoreEventContext EventContext = { 0 };

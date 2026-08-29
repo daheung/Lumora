@@ -45,19 +45,17 @@ typedef struct FMemorySystemState
 
 static FMemorySystemState* GMemorySystemState;
 
-bool8 InitializeMemory(size_t* const MemoryRequirement, void* State)
+void InitializeMemory(size_t* const MemoryRequirement, void* State)
 {
     *MemoryRequirement = sizeof(FMemorySystemState);
     if (State == NULL)
     {
-        return TRUE;
+        return;
     }
 
     GMemorySystemState = State;
     GMemorySystemState->AllocationCount = 0;
     PlatformZeroMemory(&GMemorySystemState->GMemoryStats, sizeof(FMemoryStats));
-
-    return TRUE;
 }
 
 void ReleaseMemory(void* State)
@@ -87,13 +85,14 @@ LUMORA_C_API void* HAllocate(uint64 AllocSize, EMemoryTag MemoryTag)
 
 LUMORA_C_API void HFree(void* Block, uint64 AllocSize, EMemoryTag MemoryTag)
 {
-    LUMORA_LOG(MemoryTag != MEMORY_TAG_UNKNOWN, LOG_LEVEL_WARN, "HAllocate called using MEMORY_TAG_UNKNOWN. Re-class this allocation.");
+    LUMORA_LOG(MemoryTag != MEMORY_TAG_UNKNOWN, LOG_LEVEL_WARN, "HFree called using MEMORY_TAG_UNKNOWN. Re-class this allocation.");
     LUMORA_LOG(MemoryTag != MEMORY_TAG_MAX_TAGS, LOG_LEVEL_FATAL, "Invalid MemoryTag Param");
+
+    LUMORA_ASSERT_MSG(AllocSize <= GMemorySystemState->GMemoryStats.TotalAllocated, "AllocSize cannot exceed TotalAllocated.");
+    LUMORA_ASSERT_MSG(AllocSize <= GMemorySystemState->GMemoryStats.TaggedAllocations[MemoryTag],"AllocSize cannot exceed TaggedAllocation.");
 
     GMemorySystemState->GMemoryStats.TotalAllocated -= AllocSize;
     GMemorySystemState->GMemoryStats.TaggedAllocations[MemoryTag] -= AllocSize;
-
-    LUMORA_ASSERT_MSG(GMemorySystemState->GMemoryStats.TotalAllocated >= 0, "TotalAllocated must not be less than 0.");
 
     /** TODO: Memory Alignment */
     PlatformFree(Block, FALSE);

@@ -13,16 +13,12 @@
 
 #include "Renderer/RendererFrontend.h"
 
-#define INITIALIZE_SUBSYSTEM_BY_ALLOCATOR(Initializer, SubsystemMemoryRequirement, SystemState)                                         \
-    do                                                                                                                                  \
-    {                                                                                                                                   \
-        Initializer(&SubsystemMemoryRequirement, NULL);                                                                                 \
-        SystemState = AllocateLinearAllocator(&GApplicationState->SystemAllocator, SubsystemMemoryRequirement);                         \
-        if (!Initializer(&SubsystemMemoryRequirement, (void*)SystemState))                                                              \
-        {                                                                                                                               \
-            LUMORA_ERROR("Failed to initialize system; shutting down.");                                                                \
-            return FALSE;                                                                                                               \
-        }                                                                                                                               \
+#define INITIALIZE_SUBSYSTEM_BY_ALLOCATOR(Initializer, SubsystemMemoryRequirement, SystemState)                     \
+    do                                                                                                              \
+    {                                                                                                               \
+        Initializer(&(SubsystemMemoryRequirement), NULL);                                                           \
+        SystemState = AllocateLinearAllocator(&GApplicationState->SystemAllocator, (SubsystemMemoryRequirement));   \
+        Initializer(&(SubsystemMemoryRequirement), (void*)(SystemState));                                           \
     } while (0)
     
 typedef struct FApplicationState
@@ -30,7 +26,6 @@ typedef struct FApplicationState
     struct FGame* GameInstance;
     bool8 bIsRunning;
     bool8 bIsSuspended;
-    FPlatformState PlatformState;
     int16 Width;
     int16 Height;
     FClock Clock;
@@ -38,11 +33,23 @@ typedef struct FApplicationState
 
     FLinearAllocator SystemAllocator;
 
+    size_t EventSystemMemoryRequirement;
+    void* EventSystemState;
+
     size_t LoggingSystemMemoryRequirement;
     void* LoggingSystemState;
 
     size_t MemorySystemMemoryRequirement;
     void* MemorySystemState;
+
+    size_t InputSystemMemoryRequirements;
+    void* InputSystemState;
+
+    size_t PlatformSystemMemoryRequirement;
+    void* PlatformSystemState;
+
+    size_t RendererSystemMemoryRequirement;
+    void* RendererSystemState;
 } FApplicationState;
 
 //static bool8 bInitialized = FALSE;
@@ -73,9 +80,9 @@ LUMORA_C_API bool8 ApplicationCreate(struct FGame* GameInstance)
     /** Initialize subsystems. */
     INITIALIZE_SUBSYSTEM_BY_ALLOCATOR(InitializeMemory, GApplicationState->MemorySystemMemoryRequirement, GApplicationState->MemorySystemState);
     INITIALIZE_SUBSYSTEM_BY_ALLOCATOR(InitializeLogging, GApplicationState->LoggingSystemMemoryRequirement, GApplicationState->LoggingSystemState);
+    INITIALIZE_SUBSYSTEM_BY_ALLOCATOR(InitializeEvent, GApplicationState->EventSystemMemoryRequirement, GApplicationState->EventSystemState);
+    INITIALIZE_SUBSYSTEM_BY_ALLOCATOR(InitializeInput, GApplicationState->InputSystemMemoryRequirements, GApplicationState->InputSystemState);
 
-    InitializeEvent();
-    InitializeInput();
 
     /** Register event for quit engine. */
     RegisterEvent(EVENT_CODE_APPLICATION_QUIT, 0, ApplicationOnEvent);
@@ -84,13 +91,17 @@ LUMORA_C_API bool8 ApplicationCreate(struct FGame* GameInstance)
     RegisterEvent(EVENT_CODE_RESIZED         , 0, ApplicationOnResized);
 
     FApplicationConfig* Config = &GApplicationState->GameInstance->ApplicationConfig;
-    if (!PlatformStartup(&GApplicationState->PlatformState, Config->ApplicationName, Config->StartPositionX, Config->StartPositionY, Config->StartWidth, Config->StartHeight)) 
+    PlatformStartup(&GApplicationState->PlatformSystemMemoryRequirement, NULL, NULL, 0, 0, 0, 0);
+    GApplicationState->PlatformSystemState = AllocateLinearAllocator(&GApplicationState->SystemAllocator, GApplicationState->PlatformSystemMemoryRequirement);
+    if (!PlatformStartup(&GApplicationState->PlatformSystemMemoryRequirement, GApplicationState->PlatformSystemState, Config->ApplicationName, Config->StartPositionX, Config->StartPositionY, Config->StartWidth, Config->StartHeight))
     {
         return FALSE;
     }
 
     /** Initialize Renderer */
-    const bool8 bRendererInitSucceed = InitializeRenderer(GameInstance->ApplicationConfig.ApplicationName, &GApplicationState->PlatformState);
+    InitializeRenderer(&GApplicationState->RendererSystemMemoryRequirement, NULL, NULL);
+    GApplicationState->RendererSystemState = AllocateLinearAllocator(&GApplicationState->SystemAllocator, GApplicationState->RendererSystemMemoryRequirement);
+    const bool8 bRendererInitSucceed = InitializeRenderer(&GApplicationState->RendererSystemMemoryRequirement, GApplicationState->RendererSystemState, GameInstance->ApplicationConfig.ApplicationName);
     if (!bRendererInitSucceed)
     {
         LUMORA_FATAL("Failed to initialize renderer. Aborting applocation.");
@@ -145,7 +156,7 @@ LUMORA_C_API bool8 ApplocationLoop()
 
     while (GApplicationState->bIsRunning)
     {
-        if (!PlatformPumpMessage(&GApplicationState->PlatformState))
+        if (!PlatformPumpMessage())
         {
             GApplicationState->bIsRunning = FALSE;
         }
@@ -225,17 +236,18 @@ LUMORA_C_API bool8 ApplocationLoop()
     UnregisterEvent(EVENT_CODE_KEY_PRESSED     , 0, ApplicationOnKey);
     UnregisterEvent(EVENT_CODE_KEY_RELEASED    , 0, ApplicationOnKey);
 
-    PlatformShutdown(&GApplicationState->PlatformState);
+    PlatformShutdown(GApplicationState->PlatformSystemState);
     ShutdownLogging();
     ReleaseEvent();
-    ReleaseInput();
-    ReleaseRenderer();
-    ReleaseMemory(GApplicationState->MemorySystemState);
+    ReleaseInput(GApplicationState->InputSystemState);
+    ReleaseRenderer(GApplicationState->RendererSystemState);
 
-    ReleaseLinearAllocator(&GApplicationState->SystemAllocator);
+    /** TODO: Refactor this. */
+    // FLinearAllocator* HeapLinearAllocator = &GApplicationState->SystemAllocator;
+    // ReleaseLinearAllocator(HeapLinearAllocator);
 
     HFree(GApplicationState, sizeof(FApplicationState), MEMORY_TAG_APPLICATION);
-
+    ReleaseMemory(GApplicationState->MemorySystemState);
     return TRUE;
 }
 

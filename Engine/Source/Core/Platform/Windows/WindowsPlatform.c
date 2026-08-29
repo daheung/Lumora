@@ -16,37 +16,40 @@
 #include <vulkan/vulkan_win32.h>
 #include <Vulkan/VulkanTypes.inl>
 
-typedef struct FInternalState 
+typedef struct FPlatformlState 
 {
     HINSTANCE Instance;
     HWND Hwnd;
     VkSurfaceKHR Surface;
-} FInternalState;
 
-/** Clock */
-static float64 GClockFrequency;
-static LARGE_INTEGER GStartTime;
+    float64 ClockFrequency;
+    LARGE_INTEGER StartTime;
+} FPlatformlState;
+
+static FPlatformlState* GPlatformState;
 
 static LRESULT CALLBACK Win32ProcessMessage(HWND, UINT, WPARAM, LPARAM);
 static FORCEINLINE void PlatformConsoleWriteImpl(const char* Message, uint8 Color, HANDLE ConsoleHandle);
 
 static FORCEINLINE void ProcessKeyInputImpl(HWND Hwnd, UINT Message, WPARAM wParam, LPARAM lParam);
 
-bool8 PlatformStartup(FPlatformState* PlatformState, const char* ApplicationName, int32 X, int32 Y, int32 Width, int32 Height)
+bool8 PlatformStartup(size_t* RequirementMemory, void* State, const char* ApplicationName, int32 X, int32 Y, int32 Width, int32 Height)
 {
-    FInternalState* InternalState = (FInternalState*)malloc(sizeof(FInternalState));
-    PlatformState->InternalState = InternalState;
-
-    InternalState->Instance = GetModuleHandleA(0);
+    *RequirementMemory = sizeof(FPlatformlState);
+    if (State == 0) {
+        return TRUE;
+    }
+    GPlatformState = State;
+    GPlatformState->Instance = GetModuleHandleA(0);
 
     /** Setup and register window class. */
-    HICON Icon = LoadIcon(InternalState->Instance, IDI_APPLICATION);
+    HICON Icon = LoadIcon(GPlatformState->Instance, IDI_APPLICATION);
     WNDCLASSA WindowClass = { 0 };
     WindowClass.style = CS_DBLCLKS;
     WindowClass.lpfnWndProc = Win32ProcessMessage;
     WindowClass.cbClsExtra = 0;
     WindowClass.cbWndExtra = 0;
-    WindowClass.hInstance = InternalState->Instance;
+    WindowClass.hInstance = GPlatformState->Instance;
     WindowClass.hIcon = Icon;
     WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
     WindowClass.hbrBackground = NULL;
@@ -91,7 +94,7 @@ bool8 PlatformStartup(FPlatformState* PlatformState, const char* ApplicationName
     HWND Handle = CreateWindowExA(
         WindowExStyle, "Lumora Window Class", ApplicationName,
         WindowStyle, WindowX, WindowY, WindowWidth, WindowHeight,
-        0, 0, InternalState->Instance, 0
+        0, 0, GPlatformState->Instance, 0
     );
 
     if (Handle == 0)
@@ -101,7 +104,7 @@ bool8 PlatformStartup(FPlatformState* PlatformState, const char* ApplicationName
         return FALSE;
     }
 
-    InternalState->Hwnd = Handle;
+    GPlatformState->Hwnd = Handle;
 
     /** Show the window */
     bool32 ShouldActivate = 1;
@@ -112,33 +115,29 @@ bool8 PlatformStartup(FPlatformState* PlatformState, const char* ApplicationName
      * If initially minimized, use SW_MINIMIZE : SW_SHOWMINNOACTIVE;
      * If initially maximized, use SW_SHOWMAXIMIZED : SW_MAXIMIZE;
      */
-    ShowWindow(InternalState->Hwnd, ShowWindowCommandFlags);
+    ShowWindow(GPlatformState->Hwnd, ShowWindowCommandFlags);
 
     /** Clock setup */
     LARGE_INTEGER Frequency;
     QueryPerformanceFrequency(&Frequency);
-    GClockFrequency = 1.0 / (float64)Frequency.QuadPart;
-    QueryPerformanceCounter(&GStartTime);
+    GPlatformState->ClockFrequency = 1.0 / (float64)Frequency.QuadPart;
+    QueryPerformanceCounter(&GPlatformState->StartTime);
 
     return TRUE;
 }
 
-void PlatformShutdown(FPlatformState* PlatformState)
+void PlatformShutdown(void* State)
 {
     /** Simply cold-cast to the known type. */
-    FInternalState* InternalState = (FInternalState*)PlatformState->InternalState;
-    
-    if (InternalState->Hwnd)
+    if (State && GPlatformState->Hwnd)
     {
-        DestroyWindow(InternalState->Hwnd);
-        InternalState->Hwnd = 0;
+        DestroyWindow(GPlatformState->Hwnd);
+        GPlatformState->Hwnd = 0;
     }
 }
 
-bool8 PlatformPumpMessage(FPlatformState* PlatformState)
+bool8 PlatformPumpMessage()
 {
-    LUMORA_UNUSED_PARAM(PlatformState);
-
     MSG Message = { 0, };
     while (PeekMessage(&Message, NULL, 0, 0, PM_REMOVE))
     {
@@ -219,7 +218,7 @@ float64 PlatformGetAbsoluteTime(void)
 {
     LARGE_INTEGER CurrentTime = { 0 };
     QueryPerformanceCounter(&CurrentTime);
-    return (float64)CurrentTime.QuadPart * GClockFrequency;
+    return (float64)CurrentTime.QuadPart * GPlatformState->ClockFrequency;
 }
 
 void PlatformSleep(uint64 MilliSecond)
@@ -242,23 +241,24 @@ void PlatformGetRequiredExtensionNames(const char*** CArrayNames)
 }
 
 /** Surface creation for Vulkan. */
-bool8 PlatformCreateVulkanSurface(struct FPlatformState* PlatformState, struct FVulkanContext* VulkanContext)
+bool8 PlatformCreateVulkanSurface(struct FVulkanContext* VulkanContext)
 {
-    /** simply cold-cast to the known type. */
-    FInternalState* InternalState = (FInternalState*)PlatformState->InternalState;
+    if (!GPlatformState) {
+        return FALSE;
+    }
     
     VkWin32SurfaceCreateInfoKHR CreateInfo = { VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
-    CreateInfo.hinstance = InternalState->Instance;
-    CreateInfo.hwnd = InternalState->Hwnd;
+    CreateInfo.hinstance = GPlatformState->Instance;
+    CreateInfo.hwnd = GPlatformState->Hwnd;
 
-    VkResult Result = vkCreateWin32SurfaceKHR(VulkanContext->Instance, &CreateInfo, VulkanContext->Allocator, &InternalState->Surface);
+    VkResult Result = vkCreateWin32SurfaceKHR(VulkanContext->Instance, &CreateInfo, VulkanContext->Allocator, &GPlatformState->Surface);
     if (Result != VK_SUCCESS)
     {
         LUMORA_FATAL("Vulkan surface creation failed.");
         return FALSE;
     }
 
-    VulkanContext->Surface = InternalState->Surface;
+    VulkanContext->Surface = GPlatformState->Surface;
     return TRUE;
 }
 

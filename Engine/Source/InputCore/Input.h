@@ -137,8 +137,16 @@ typedef enum EKeys
     KEYS_MAX_KEYS,
 } EKeys;
 
-void InitializeInput(void);
-void ReleaseInput(void);
+/**
+ * @brief Initializes the input system. Call twice; once to obtain memory requirement (passing
+ * state = 0), then a second time passing allocated memory to state.
+ *
+ * @param MemoryRequirement The required size of the state memory.
+ * @param State Either 0 or the allocated block of state memory.
+ */
+void InitializeInput(size_t* MemoryRequirement, void* State);
+
+void ReleaseInput(void* State);
 
 /**
  * NOTE: UpdateInput Copies the current input state to the previous input state.

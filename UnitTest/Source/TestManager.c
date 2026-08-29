@@ -2,6 +2,7 @@
 
 #include <Core/Containers/Array.h>
 #include <Core/Logger.h>
+#include <Core/Asserts.h>
 #include <Core/Misc/CString.h>
 #include <Core/Misc/Clock.h>
 

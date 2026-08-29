@@ -2,6 +2,7 @@
 
 #include "Core/HAL/LumoraMemory.h"
 #include "Core/Logger.h"
+#include "Core/Asserts.h"
 
 LUMORA_C_API void CreateLinearAllocator(size_t TotalSize, void* Memory, FLinearAllocator* OutAllocator)
 {

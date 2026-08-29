@@ -33,3 +33,7 @@ target_link_libraries(TestBed
     PRIVATE
         Engine
 )
+
+set_target_properties(TestBed PROPERTIES
+    VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:TestBed>"
+)

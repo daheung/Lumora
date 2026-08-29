@@ -28,7 +28,7 @@ typedef struct FCoreEventContext
 /** Should return true if handled. */
 typedef bool8 (*OnEventFunc)(uint16 Code, void* Sender, void* ListenerInstance, FCoreEventContext Data);
 
-bool8 InitializeEvent();
+void InitializeEvent(size_t* const MemoryRequirement, void* State);
 void ReleaseEvent();
 
 /**
