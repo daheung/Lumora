@@ -8,6 +8,19 @@
 /** Checks the given expression's return value against VK_SUCCESS. */
 #define VK_CHECK(Expr) LUMORA_ASSERT(Expr == VK_SUCCESS)
 
+#define OBJECT_SHADER_STAGE_COUNT 2
+
+typedef struct FVulkanBuffer
+{
+    size_t TotalSize;
+    VkBuffer Handle;
+    VkBufferUsageFlagBits Usage;
+    bool8 bIsLocked;
+    VkDeviceMemory Memory;
+    int32 MemoryIndex;
+    uint32 MemoryPropertyFlags;
+} FVulkanBuffer;
+
 typedef struct FVulkanSwapchainSupportInfo
 {
     VkSurfaceCapabilitiesKHR Capabilities;
@@ -117,6 +130,26 @@ typedef struct FVulkanFence
     bool8 bIsSignaled;
 } FVulkanFence;
 
+typedef struct FVulkanShaderStage
+{
+    VkShaderModuleCreateInfo CreateInfo;
+    VkShaderModule Handle;
+    VkPipelineShaderStageCreateInfo ShaderStageCreateInfo;
+} FVulkanShaderStage;
+
+typedef struct FVulkanPipeline
+{
+    VkPipeline Handle;
+    VkPipelineLayout PipelineLayout;
+} FVulkanPipeline;
+
+typedef struct FVulkanObjectShader
+{
+    /** Vertex? Fragment? */
+    FVulkanShaderStage Stages[OBJECT_SHADER_STAGE_COUNT];
+    FVulkanPipeline Pipeline;
+} FVulkanObjectShader;
+
 typedef struct FVulkanContext
 {
     VkInstance Instance;
@@ -147,6 +180,9 @@ typedef struct FVulkanContext
     FVulkanSwapchain Swapchain;
     FVulkanRenderPass MainRenderPass;
 
+    FVulkanBuffer ObjectVertexBuffer;
+    FVulkanBuffer ObjectIndexBuffer;
+
     FVulkanCommandBuffer* GraphicsCommandBuffers;
 
     VkSemaphore* ImageAvailableSemaphores;
@@ -161,6 +197,11 @@ typedef struct FVulkanContext
     uint32 CurrentFrame;
 
     bool8 bRecreatingSwapchain;
+
+    FVulkanObjectShader ObjectShader;
+
+    size_t GeometryVertexOffset;
+    size_t GeometryIndexOffset;
 
     int32(*FindMemoryIndexFunc)(uint32 TypeFilter, uint32 PropertyFlags);
 } FVulkanContext;

@@ -5,17 +5,30 @@
 #include "Core/HAL/LumoraMemory.h"
 
 /** Backend render context. */
-static FRendererBackend* GBackend = NULL;
+//static FRendererBackend* GBackend = NULL;
 
-bool8 InitializeRenderer(const char* ApplicationName, struct FPlatformState* PlatformState)
+typedef struct FRendererSystemState
 {
-    GBackend = HAllocate(sizeof(FRendererBackend), MEMORY_TAG_RENDERER);
+    FRendererBackend Backend;
+} FRendererSystemState;
+
+static FRendererSystemState* GRendererState;
+
+bool8 InitializeRenderer(size_t* MemoryRequirement, void* State, const char* ApplicationName)
+{
+    *MemoryRequirement = sizeof(FRendererSystemState);
+    if (State == 0) {
+        return TRUE;
+    }
+
+    GRendererState = State;
+    HZeroMemory(GRendererState, sizeof(FRendererSystemState));
 
     /** TODO: Mack this configurable. */
-    CreateRendererBackend(RENDERER_BACKEND_TYPE_VULKAN, PlatformState, GBackend);
-    GBackend->FrameCount = 0;
+    CreateRendererBackend(RENDERER_BACKEND_TYPE_VULKAN, &GRendererState->Backend);
+    GRendererState->Backend.FrameCount = 0;
 
-    const bool8 bInitSucceed = GBackend->Initialize(GBackend, ApplicationName, PlatformState);
+    const bool8 bInitSucceed = GRendererState->Backend.Initialize(&GRendererState->Backend, ApplicationName);
     if (!bInitSucceed)
     {
         LUMORA_FATAL("Renderer backend failed to initialize. Shutting down.");
@@ -25,20 +38,22 @@ bool8 InitializeRenderer(const char* ApplicationName, struct FPlatformState* Pla
     return TRUE;
 }
 
-void ReleaseRenderer()
+void ReleaseRenderer(void* State)
 {
-    GBackend->Release(GBackend);
-    HFree(GBackend, sizeof(FRendererBackend), MEMORY_TAG_RENDERER);
+    LUMORA_UNUSED_PARAM(State);
+
+    if (GRendererState) 
+    {
+        GRendererState->Backend.Release(&GRendererState->Backend);
+    }
+    GRendererState = NULL;
 }
 
 void RendererOnResize(uint16 Width, uint16 Height)
 {
-    if (GBackend)
+    if (GRendererState && GRendererState->Backend.Resized)
     {
-        if (GBackend->Resized)
-        {
-            GBackend->Resized(GBackend, Width, Height);
-        }
+        GRendererState->Backend.Resized(&GRendererState->Backend, Width, Height);
     }
     else
     {
@@ -48,13 +63,18 @@ void RendererOnResize(uint16 Width, uint16 Height)
 
 bool8 RendererBeginFrame(float32 DeltaTime)
 {
-    return GBackend->BeginFrame(GBackend, DeltaTime);
+    if (GRendererState == NULL)
+    {
+        return FALSE;
+    }
+
+    return GRendererState->Backend.BeginFrame(&GRendererState->Backend, DeltaTime);
 }
 
 bool8 RendererEndFrame(float32 DeltaTime)
 {
-    const bool8 bEndFrameSucceed = GBackend->EndFrame(GBackend, DeltaTime);
-    GBackend->FrameCount++;
+    const bool8 bEndFrameSucceed = GRendererState->Backend.EndFrame(&GRendererState->Backend, DeltaTime);
+    GRendererState->Backend.FrameCount++;
     return bEndFrameSucceed;
 }
 

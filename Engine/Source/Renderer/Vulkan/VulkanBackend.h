@@ -4,7 +4,7 @@
 
 struct FPlatformState;
 
-bool8 VulkanInitializeRendererBackend(FRendererBackend* Backend, const char* ApplicationName, struct FPlatformState* PlatformState);
+bool8 VulkanInitializeRendererBackend(FRendererBackend* Backend, const char* ApplicationName);
 
 void VulkanReleaseRendererBackend(FRendererBackend* Backend);
 

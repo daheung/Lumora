@@ -16,7 +16,11 @@
 #include "Vulkan/VulkanFrameBuffer.h"
 #include "Vulkan/VulkanFence.h"
 #include "Vulkan/VulkanUtils.h"
+#include "Vulkan/Shaders/VulkanObjectShader.h"
+#include "Vulkan/VulkanBuffer.h"
 
+
+#include "Core/Math/MathFwd.h"
 
 struct FPlatformState;
 
@@ -34,13 +38,32 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VkDebugCallback(
 
 int32 FindMemoryIndex(uint32 TypeFilter, uint32 PropertyFlags);
 
+bool8 CreateBuffers(FVulkanContext* VulkanContext);
+
 void CreateCommandBuffer(FRendererBackend* Backend);
 
 void RegenerateFrameBuffers(FRendererBackend* Backend, FVulkanSwapchain* Swapchain, FVulkanRenderPass* RenderPass);
 
 bool8 RecreateSwapchain(FRendererBackend* Backend);
 
-bool8 VulkanInitializeRendererBackend(FRendererBackend* Backend, const char* ApplicationName, struct FPlatformState* PlatformState)
+void UploadDataRange(FVulkanContext* VulkanContext, VkCommandPool Pool, VkFence Fence, VkQueue Queue, FVulkanBuffer* Buffer, size_t Offset, size_t Size, void* Data)
+{
+    /** Create a host-visiable staging buffer to upload to. Mark it as the source of the transfer. */
+    VkBufferUsageFlags Flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    FVulkanBuffer Staging = { 0 };
+    VulkanCreateBuffer(VulkanContext, Size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, Flags, TRUE, &Staging);
+
+    /** Load the data into the staging buffer. */
+    VulkanBufferLoadData(VulkanContext, &Staging, 0, Size, 0, Data);
+
+    /** Perform the copy from staging to the device local buffer. */
+    VulkanBufferCopyTo(VulkanContext, Pool, Fence, Queue, Staging.Handle, 0, Buffer->Handle, Offset, Size);
+
+    /** Clean up the staging buffer. */
+    VulkanReleaseBuffer(VulkanContext, &Staging);
+}
+
+bool8 VulkanInitializeRendererBackend(FRendererBackend* Backend, const char* ApplicationName)
 {
     /** Function pointers */
     GVulkanContext.FindMemoryIndexFunc = FindMemoryIndex;
@@ -133,7 +156,7 @@ bool8 VulkanInitializeRendererBackend(FRendererBackend* Backend, const char* App
 
     CreateInfo.ppEnabledLayerNames = RequiredValidationLayerNames;
     CreateInfo.enabledLayerCount = RequiredValidationLayerCount;
-
+    
     VkResult Result = vkCreateInstance(&CreateInfo, GVulkanContext.Allocator, &GVulkanContext.Instance);
     if (Result != VK_SUCCESS)
     {
@@ -168,7 +191,7 @@ bool8 VulkanInitializeRendererBackend(FRendererBackend* Backend, const char* App
     
     /** Surface */
     LUMORA_DEBUG("Createing Vulkan surface...");
-    if (!PlatformCreateVulkanSurface(PlatformState, &GVulkanContext))
+    if (!PlatformCreateVulkanSurface(&GVulkanContext))
     {
         LUMORA_ERROR("Failed to create platform surface.");
         return FALSE;
@@ -193,7 +216,7 @@ bool8 VulkanInitializeRendererBackend(FRendererBackend* Backend, const char* App
         0, 0, 
         (float32)GVulkanContext.FrameBufferWidth, 
         (float32)GVulkanContext.FrameBufferHeight, 
-        0.0f, 0.0f, 0.2f, 1.0f, 
+        1.0f, 1.0f, 1.0f, 1.0f, 
         1.0f, 0.0f
     );
 
@@ -244,6 +267,61 @@ bool8 VulkanInitializeRendererBackend(FRendererBackend* Backend, const char* App
         GVulkanContext.ImagesInFlight[Index] = NULL;
     }
 
+    /** Create builtin shaders */
+    if (!VulkanCreateObjectShader(&GVulkanContext, &GVulkanContext.ObjectShader))
+    { 
+        LUMORA_ERROR("Error loading built-in BasicLighting shader.");
+        return FALSE;
+    }
+
+    CreateBuffers(&GVulkanContext);
+
+    /** TODO: Tempary test code */
+    {
+        const uint32 VertexCount = 4;
+        FVertex3D Vertices[4] = { 0 };
+    
+        Vertices[0].Position.X =  0.0f;
+        Vertices[0].Position.Y = -0.5f;
+
+        Vertices[1].Position.X =  0.5f;
+        Vertices[1].Position.Y =  0.5f;
+
+        Vertices[2].Position.X =  0.0f;
+        Vertices[2].Position.Y =  0.5f;
+
+        Vertices[3].Position.X =  0.5f;
+        Vertices[3].Position.Y = -0.5f;
+
+        const uint32 IndexCount = 6;
+        uint32 Indices[6] = { 
+            0, 1, 2, 
+            0, 3, 1
+        };
+
+        UploadDataRange(
+            &GVulkanContext, 
+            GVulkanContext.Device.GraphicsCommandPool, 
+            NULL, 
+            GVulkanContext.Device.GraphicsQueue, 
+            &GVulkanContext.ObjectVertexBuffer, 
+            0, 
+            sizeof(FVertex3D) * VertexCount,
+            Vertices
+        );
+
+        UploadDataRange(
+            &GVulkanContext,
+            GVulkanContext.Device.GraphicsCommandPool,
+            NULL,
+            GVulkanContext.Device.GraphicsQueue,
+            &GVulkanContext.ObjectIndexBuffer,
+            0,
+            sizeof(uint32) * IndexCount,
+            Indices
+        );
+    }
+
     CArrayRelease(RequiredExtensions);
 
 #if defined(_DEBUG) || defined(D_DEBUG)
@@ -262,6 +340,12 @@ void VulkanReleaseRendererBackend(FRendererBackend* Backend)
     vkDeviceWaitIdle(GVulkanContext.Device.Device);
 
     /** Destroy in the opposite order of creation. */
+
+    /** Destroy buffers */
+    VulkanReleaseBuffer(&GVulkanContext, &GVulkanContext.ObjectVertexBuffer);
+    VulkanReleaseBuffer(&GVulkanContext, &GVulkanContext.ObjectIndexBuffer);
+
+    VulkanReleaseObjectShader(&GVulkanContext, &GVulkanContext.ObjectShader);
 
     /** Sync objects */
     for (uint8 Index = 0; Index < GVulkanContext.Swapchain.MaxFramesInFlight; ++Index)
@@ -443,6 +527,21 @@ bool8 VulkanRendererBackendBeginFrame(FRendererBackend* Backend, float32 DeltaTi
     /** Begin the render pass. */
     VulkanRenderPassBegin(CommandBuffer, &GVulkanContext.MainRenderPass, GVulkanContext.Swapchain.FrameBuffers[GVulkanContext.ImageIndex].Handle);
 
+    /** Temporary test code */
+    {
+        VulkanUseObjectShader(&GVulkanContext, &GVulkanContext.ObjectShader);
+
+        /** Bind vertex buffer at offset */
+        VkDeviceSize Offsets[1] = { 0 };
+        vkCmdBindVertexBuffers(CommandBuffer->Handle, 0, 1, &GVulkanContext.ObjectVertexBuffer.Handle, (VkDeviceSize*)Offsets);
+
+        /** Bind index buffer at offset. */
+        vkCmdBindIndexBuffer(CommandBuffer->Handle, GVulkanContext.ObjectIndexBuffer.Handle, 0, VK_INDEX_TYPE_UINT32);
+
+        /** Issue the draw. */
+        vkCmdDrawIndexed(CommandBuffer->Handle, 6, 1, 0, 0, 0);
+    }
+
     return TRUE;
 }
 
@@ -563,6 +662,47 @@ int32 FindMemoryIndex(uint32 TypeFilter, uint32 PropertyFlags)
 
     LUMORA_WARN("Unable to find suitable memory type.");
     return -1;
+}
+
+bool8 CreateBuffers(FVulkanContext* VulkanContext)
+{
+    VkMemoryPropertyFlagBits MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+    const size_t VertexBufferSize = sizeof(FVertex3D) * 1024 * 1024;
+    const bool8 bCreateVertexBufferSucceed = VulkanCreateBuffer(
+        VulkanContext, 
+        VertexBufferSize, 
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        MemoryPropertyFlags, 
+        TRUE, 
+        &VulkanContext->ObjectVertexBuffer
+    );
+    if (!bCreateVertexBufferSucceed)
+    {
+        LUMORA_ERROR("Error creating vertex buffer.");
+        return FALSE;
+    }
+
+    VulkanContext->GeometryVertexOffset = 0;
+
+    const size_t IndexBufferSize = sizeof(uint32) * 1024 * 1024;
+    const bool8 bCreateIndexBufferSucceed = VulkanCreateBuffer(
+        VulkanContext,
+        IndexBufferSize,
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        MemoryPropertyFlags,
+        TRUE,
+        &VulkanContext->ObjectIndexBuffer
+    );
+    if (!bCreateIndexBufferSucceed)
+    {
+        LUMORA_ERROR("Error creating index buffer.");
+        return FALSE;
+    }
+
+    VulkanContext->GeometryIndexOffset = 0;
+
+    return TRUE;
 }
 
 void CreateCommandBuffer(FRendererBackend* Backend)

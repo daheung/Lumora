@@ -15,10 +15,9 @@ typedef enum ERendererBackendType
 
 typedef struct FRendererBackend
 {
-    struct FPlatformState* PlatformState;
     uint64 FrameCount;
 
-    bool8 (*Initialize)(struct FRendererBackend* Backend, const char* ApplicationName, struct FPlatformState* PlatformState);
+    bool8 (*Initialize)(struct FRendererBackend* Backend, const char* ApplicationName);
 
     void  (*Release)(struct FRendererBackend* Backend);
 

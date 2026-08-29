@@ -4,6 +4,6 @@
 
 struct FPlatformState;
 
-bool8 CreateRendererBackend(ERendererBackendType Type, struct FPlatformState* PlatformState, FRendererBackend* OutRendererBackend);
+bool8 CreateRendererBackend(ERendererBackendType Type, FRendererBackend* OutRendererBackend);
 
 void ReleaseRendererBackend(FRendererBackend* RendererBackend);

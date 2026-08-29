@@ -2,10 +2,8 @@
 
 #include "Vulkan/VulkanBackend.h"
 
-bool8 CreateRendererBackend(ERendererBackendType Type, struct FPlatformState* PlatformState, FRendererBackend* OutRendererBackend)
+bool8 CreateRendererBackend(ERendererBackendType Type, FRendererBackend* OutRendererBackend)
 {
-    OutRendererBackend->PlatformState = PlatformState;
-
     switch (Type)
     {
     case RENDERER_BACKEND_TYPE_VULKAN:
@@ -19,8 +17,6 @@ bool8 CreateRendererBackend(ERendererBackendType Type, struct FPlatformState* Pl
     default:
         return FALSE;
     }
-
-    return FALSE;
 }
 
 void ReleaseRendererBackend(FRendererBackend* RendererBackend)

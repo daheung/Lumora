@@ -5,7 +5,7 @@
 struct FPlatformState;
 struct FVulkanContext;
 
-bool8 PlatformCreateVulkanSurface(struct FPlatformState* PlatformState, struct FVulkanContext* VulkanContext);
+bool8 PlatformCreateVulkanSurface(struct FVulkanContext* VulkanContext);
 
 /**
  * Appends the names of required extensions for this platform to

@@ -6,9 +6,9 @@ struct FStaticMeshData;
 struct FPlatformState;
 struct FRenderPacket;
 
-bool8 InitializeRenderer(const char* ApplicationName, struct FPlatformState* PlatformState);
+bool8 InitializeRenderer(size_t* MemoryRequirement, void* State, const char* ApplicationName);
 
-void ReleaseRenderer();
+void ReleaseRenderer(void* State);
 
 void RendererOnResize(uint16 Width, uint16 Height);
 
