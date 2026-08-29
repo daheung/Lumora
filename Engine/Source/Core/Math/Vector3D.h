@@ -43,7 +43,7 @@ NODISCARD FORCEINLINE FVector3D CreateVector3D(float32 X, float32 Y, float32 Z)
 	FVector3D OutVector = { 0 };
 	OutVector.X = X;
 	OutVector.Y = Y;
-	OutVector.Z = Y;
+	OutVector.Z = Z;
 	return OutVector;
 }
 

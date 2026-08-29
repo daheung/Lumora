@@ -166,22 +166,22 @@ NODISCARD FORCEINLINE FMatrix MatLookAt(FVector3D Position, FVector3D Target, FV
 NODISCARD FORCEINLINE FMatrix MatTransposed(FMatrix Matrix)
 {
 	FMatrix OutMatrix = MatIdentity();
-	OutMatrix.Data[ 0] = OutMatrix.Data[ 0];
-	OutMatrix.Data[ 1] = OutMatrix.Data[ 4];
-	OutMatrix.Data[ 2] = OutMatrix.Data[ 8];
-	OutMatrix.Data[ 3] = OutMatrix.Data[12];
-	OutMatrix.Data[ 4] = OutMatrix.Data[ 1];
-	OutMatrix.Data[ 5] = OutMatrix.Data[ 5];
-	OutMatrix.Data[ 6] = OutMatrix.Data[ 9];
-	OutMatrix.Data[ 7] = OutMatrix.Data[13];
-	OutMatrix.Data[ 8] = OutMatrix.Data[ 2];
-	OutMatrix.Data[ 9] = OutMatrix.Data[ 6];
-	OutMatrix.Data[10] = OutMatrix.Data[10];
-	OutMatrix.Data[11] = OutMatrix.Data[14];
-	OutMatrix.Data[12] = OutMatrix.Data[ 3];
-	OutMatrix.Data[13] = OutMatrix.Data[ 7];
-	OutMatrix.Data[14] = OutMatrix.Data[11];
-	OutMatrix.Data[15] = OutMatrix.Data[15];
+	OutMatrix.Data[ 0] = Matrix.Data[ 0];
+	OutMatrix.Data[ 1] = Matrix.Data[ 4];
+	OutMatrix.Data[ 2] = Matrix.Data[ 8];
+	OutMatrix.Data[ 3] = Matrix.Data[12];
+	OutMatrix.Data[ 4] = Matrix.Data[ 1];
+	OutMatrix.Data[ 5] = Matrix.Data[ 5];
+	OutMatrix.Data[ 6] = Matrix.Data[ 9];
+	OutMatrix.Data[ 7] = Matrix.Data[13];
+	OutMatrix.Data[ 8] = Matrix.Data[ 2];
+	OutMatrix.Data[ 9] = Matrix.Data[ 6];
+	OutMatrix.Data[10] = Matrix.Data[10];
+	OutMatrix.Data[11] = Matrix.Data[14];
+	OutMatrix.Data[12] = Matrix.Data[ 3];
+	OutMatrix.Data[13] = Matrix.Data[ 7];
+	OutMatrix.Data[14] = Matrix.Data[11];
+	OutMatrix.Data[15] = Matrix.Data[15];
 	return OutMatrix;
 }
 
@@ -338,8 +338,8 @@ NODISCARD FORCEINLINE FMatrix MatEular(float32 XRadians, float32 YRadians, float
 {
 	FMatrix OutMatrix = MatIdentity();
 	const FMatrix RotateX = MatEularX(XRadians);
-	const FMatrix RotateY = MatEularY(XRadians);
-	const FMatrix RotateZ = MatEularZ(XRadians);
+	const FMatrix RotateY = MatEularY(YRadians);
+	const FMatrix RotateZ = MatEularZ(ZRadians);
 
 	OutMatrix = MatMultiplication(RotateX, RotateY);
 	OutMatrix = MatMultiplication(OutMatrix, RotateZ);

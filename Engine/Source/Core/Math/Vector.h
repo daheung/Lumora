@@ -37,7 +37,7 @@ NODISCARD FORCEINLINE FVector4D Vector3DTo4D(FVector3D Vector, float32 W)
 	OutVector.X = Vector.X;
 	OutVector.Y = Vector.Y;
 	OutVector.Z = Vector.Z;
-	OutVector.W = Vector.W;
+	OutVector.W = W;
 	return OutVector;
 #endif
 }
